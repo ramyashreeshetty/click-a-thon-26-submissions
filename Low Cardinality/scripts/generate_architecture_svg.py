@@ -47,7 +47,7 @@ except ImportError:  # pragma: no cover - glyph coverage check is skipped withou
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "artifacts" / "architecture" / "verdict-system-architecture.svg"
-FONT_DIR = ROOT / "artifacts" / "pitch_deck" / "fonts"
+FONT_DIR = ROOT / "artifacts" / "fonts"
 
 WIDTH = 1600
 HEIGHT = 900
@@ -760,7 +760,7 @@ def draw_connectors(svg: SVG) -> None:
 
 def draw_footer(svg: SVG) -> None:
     svg.text(
-        "Solid = implemented flow · dashed = optional or in progress · ClickStack observes the "
+        "Solid = implemented flow · dashed = optional or in progress · telemetry observes the "
         "investigation, it never decides it",
         SAFE,
         852,
