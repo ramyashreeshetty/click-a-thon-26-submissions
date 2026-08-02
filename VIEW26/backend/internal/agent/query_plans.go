@@ -55,7 +55,7 @@ func buildAnalysisPlanForIntent(intent, question string, input domain.FeatureInp
 	case "group_segments":
 		return groupSegmentsPlan(profile, schema)
 	case "conversion_comparison":
-		return conversionComparisonPlan(question, input, profile, schema, sourceDatabase)
+		return conversionComparisonPlan(profile, schema, sourceDatabase)
 	case "platform_failure":
 		return platformFailurePlan(profile, schema)
 	case "latency_performance":
@@ -86,15 +86,7 @@ func classifyFeatureIntent(input domain.FeatureInput, question string) string {
 			return intent
 		}
 	}
-	intent := ClassifyIntent(question)
-	// The shared classifier recognizes the Group / Family destination prompt,
-	// but portfolio questions often ask every feature for destination segments.
-	// Keep the group-specific contract scoped to the group feature; every other
-	// feature must use its own semantic funnel and the generic segment playbook.
-	if intent == "group_segments" && !strings.Contains(slug, "group") && !strings.Contains(slug, "family") {
-		return "segment_comparison"
-	}
-	return intent
+	return ClassifyIntent(question)
 }
 
 func recoveryIntent(question string) string {
@@ -446,12 +438,8 @@ func requestedOrigin(question string) string {
 	return value
 }
 
-func conversionComparisonPlan(question string, input domain.FeatureInput, profile domain.EventProfile, schema domain.SchemaProposal, sourceDatabase string) analysisPlan {
-	if cohortField := nullableCohortField(question, profile); cohortField != "" {
-		return nullableCohortComparisonPlan(input, profile, schema, cohortField)
-	}
-	dashboard := dashboardPlanFor(input, profile)
-	first, last := dashboard.Stages[0], dashboard.Stages[len(dashboard.Stages)-1]
+func conversionComparisonPlan(profile domain.EventProfile, schema domain.SchemaProposal, sourceDatabase string) analysisPlan {
+	first, last := funnelBounds(profile)
 	grain := analysisGrain(profile)
 	featureTable := qualified(schema.Database, schema.Table)
 	payTable := qualified(sourceDatabase, "pay_now_clicked")
@@ -502,59 +490,6 @@ FORMAT JSONEachRow`, featureTable, escapeSQL(first), featureTable, escapeSQL(las
 		Dimensions: []string{"aligned observation window"}, AllowedTables: []string{schema.Database + "." + schema.Table, sourceDatabase + ".pay_now_clicked", sourceDatabase + ".purchase_completed"},
 		RequiredEvidence: []string{"feature_completion_rate", "standard_conversion_rate", "percentage_point_lift", "relative_lift"},
 		Limitations:      []string{"The comparison is observational and does not establish causal lift."}, SQL: sql,
-	}
-}
-
-// nullableCohortField resolves a treatment/baseline marker from the business
-// question and the verified physical profile. This supports unseen comparisons
-// such as "rows where `coupon_code` is null" without hard-coding a feature.
-func nullableCohortField(question string, profile domain.EventProfile) string {
-	lower := strings.ToLower(question)
-	if !strings.Contains(lower, "null") && !strings.Contains(lower, "baseline") {
-		return ""
-	}
-	for _, field := range profile.Fields {
-		name := strings.ToLower(field.ColumnName)
-		if field.Nullable && strings.Contains(lower, name) {
-			return field.ColumnName
-		}
-	}
-	return ""
-}
-
-func nullableCohortComparisonPlan(input domain.FeatureInput, profile domain.EventProfile, schema domain.SchemaProposal, cohortField string) analysisPlan {
-	dashboard := dashboardPlanFor(input, profile)
-	first, last := dashboard.Stages[0], dashboard.Stages[len(dashboard.Stages)-1]
-	grain := dashboard.Grain
-	table := qualified(schema.Database, schema.Table)
-	field := identifier(cohortField)
-	sql := fmt.Sprintf(`SELECT
-    countIf(entered = 1 AND treated = 1) AS feature_entrants,
-    countIf(completed_treated = 1) AS feature_completions,
-    round(feature_completions / nullIf(feature_entrants, 0), 4) AS feature_completion_rate,
-    countIf(entered = 1 AND treated = 0) AS standard_entrants,
-    countIf(completed_standard = 1) AS standard_completions,
-    round(standard_completions / nullIf(standard_entrants, 0), 4) AS standard_conversion_rate,
-    round(feature_completion_rate - standard_conversion_rate, 4) AS percentage_point_lift,
-    round((feature_completion_rate / nullIf(standard_conversion_rate, 0)) - 1, 4) AS relative_lift
-FROM
-(
-    SELECT
-        %s AS entity_id,
-        max(event_name = '%s') AS entered,
-        max(%s IS NOT NULL AND notEmpty(toString(%s))) AS treated,
-        max(event_name = '%s' AND %s IS NOT NULL AND notEmpty(toString(%s))) AS completed_treated,
-        max(event_name = '%s' AND (%s IS NULL OR empty(toString(%s)))) AS completed_standard
-    FROM %s
-    GROUP BY entity_id
-)
-FORMAT JSONEachRow`, identifier(grain), escapeSQL(first), field, field, escapeSQL(last), field, field, escapeSQL(last), field, field, table)
-	return analysisPlan{
-		ID: "playbook:nullable-cohort-conversion:v1", Intent: "conversion_comparison", Answerability: "answerable", Grain: grain,
-		Metrics:    []string{"treated cohort completion rate", "null-marker baseline completion rate", "percentage-point difference", "relative difference"},
-		Dimensions: []string{cohortField + " presence"}, AllowedTables: []string{schema.Database + "." + schema.Table},
-		RequiredEvidence: []string{"feature_completion_rate", "standard_conversion_rate", "percentage_point_lift", "relative_lift"},
-		Limitations:      []string{"The cohort comparison is observational; the nullable marker may be selected by users and does not establish causal lift."}, SQL: sql,
 	}
 }
 

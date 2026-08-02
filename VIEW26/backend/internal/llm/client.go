@@ -103,9 +103,26 @@ func (c *Client) Synthesize(ctx context.Context, input agent.InsightSynthesisReq
 						"summary":            map[string]any{"type": "string", "description": "What changed and the key aggregate values."},
 						"why":                map[string]any{"type": "string", "description": "Business interpretation that respects known issues and limitations."},
 						"confidence":         map[string]any{"type": "number", "minimum": 0, "maximum": 1},
-						"recommended_action": map[string]any{"type": "string", "description": "Concrete next step for the requested role."},
+						"recommended_action": map[string]any{"type": "string", "description": "Concrete next step for the requested role, naming the specific target from the evidence."},
+						"key_findings": map[string]any{
+							"type":        "array",
+							"description": "2-4 ranked, evidence-grounded findings ordered by impact, most important first.",
+							"minItems":    1,
+							"maxItems":    4,
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"point":    map[string]any{"type": "string", "description": "The specific observation, quantified from the evidence (exact stage, segment, or metric and its value)."},
+									"why":      map[string]any{"type": "string", "description": "Why THIS finding matters to the PM and what decision it informs; never generic."},
+									"evidence": map[string]any{"type": "string", "description": "The metric, funnel stage, or segment name this finding is grounded in."},
+									"severity": map[string]any{"type": "string", "description": "Impact tier for ordering and emphasis: one of high, medium, or low."},
+								},
+								"required":             []string{"point", "why", "evidence", "severity"},
+								"additionalProperties": false,
+							},
+						},
 					},
-					"required":             []string{"headline", "summary", "why", "confidence", "recommended_action"},
+					"required":             []string{"headline", "summary", "why", "confidence", "recommended_action", "key_findings"},
 					"additionalProperties": false,
 				},
 			},
@@ -233,6 +250,17 @@ func validate(value agent.InsightSynthesis) error {
 	}
 	if value.Confidence < 0 || value.Confidence > 1 {
 		return errors.New("LLM insight confidence must be between 0 and 1")
+	}
+	if len(value.KeyFindings) > 4 {
+		return fmt.Errorf("LLM insight returned %d key findings; at most 4 are allowed", len(value.KeyFindings))
+	}
+	for index, finding := range value.KeyFindings {
+		if strings.TrimSpace(finding.Point) == "" || strings.TrimSpace(finding.Why) == "" {
+			return fmt.Errorf("LLM insight key finding %d is missing its point or why", index+1)
+		}
+		if len(finding.Point) > 400 || len(finding.Why) > 600 {
+			return fmt.Errorf("LLM insight key finding %d exceeds the length budget", index+1)
+		}
 	}
 	return nil
 }

@@ -135,43 +135,6 @@ func TestDashboardPlanUsesFeatureSemanticGrainAndStages(t *testing.T) {
 	}
 }
 
-func TestGenericDashboardExcludesFailureBranchesFromCompletion(t *testing.T) {
-	profile := domain.EventProfile{
-		EventOrder: []string{"field_shown", "coupon_entered", "coupon_applied", "checkout_completed", "coupon_rejected"},
-		Fields:     []domain.FieldProfile{{ColumnName: "application_id"}},
-	}
-	plan := dashboardPlanFor(domain.FeatureInput{Name: "Unseen promotion"}, profile)
-	if strings.Join(plan.Stages, ",") != "field_shown,coupon_entered,coupon_applied,checkout_completed" {
-		t.Fatalf("failure branch became the generic completion stage: %#v", plan)
-	}
-}
-
-func TestDestinationSegmentsUseFeatureSemanticPlanOutsideGroupFeature(t *testing.T) {
-	profile := domain.EventProfile{
-		EventOrder: []string{"link_generated", "recipient_cta_clicked"},
-		Fields: []domain.FieldProfile{
-			{ColumnName: "share_id"}, {ColumnName: "device_type"}, {ColumnName: "geoip_country_code"}, {ColumnName: "destination"},
-		},
-	}
-	plan := buildAnalysisPlan("Where are we losing conversions by device, geo, and destination?", domain.FeatureInput{Name: "Status Sharing", Slug: "status_sharing"}, profile, domain.SchemaProposal{Database: "featurelens_poc", Table: "status_sharing_events_v2"}, "atlys")
-	if plan.Intent != "segment_comparison" || plan.Grain != "share_id" || !strings.Contains(plan.SQL, "recipient_cta_clicked") || strings.Contains(plan.SQL, "groups_submitted") {
-		t.Fatalf("portfolio segment prompt escaped the feature semantic funnel: %#v", plan)
-	}
-}
-
-func TestNullableCohortComparisonUsesTheQuestionMarker(t *testing.T) {
-	profile := domain.EventProfile{
-		EventOrder: []string{"field_shown", "offer_entered", "checkout_completed", "offer_rejected"},
-		Fields: []domain.FieldProfile{
-			{ColumnName: "application_id"}, {ColumnName: "offer_code", Nullable: true},
-		},
-	}
-	plan := buildAnalysisPlan("Do offer users convert versus rows where `offer_code` is null?", domain.FeatureInput{Name: "Unseen offer"}, profile, domain.SchemaProposal{Database: "featurelens_poc", Table: "unseen_offer_events_v1"}, "atlys")
-	if plan.ID != "playbook:nullable-cohort-conversion:v1" || plan.Grain != "application_id" || !strings.Contains(plan.SQL, "offer_code") || !strings.Contains(plan.SQL, "checkout_completed") || strings.Contains(plan.SQL, "purchase_completed") {
-		t.Fatalf("nullable cohort question did not compile to an in-table treatment comparison: %#v", plan)
-	}
-}
-
 func TestDecisionInboxPlansUseFeatureSemanticsAndAbstainWhenEvidenceIsMissing(t *testing.T) {
 	schema := domain.SchemaProposal{Database: "featurelens_poc", Table: "events_v2"}
 	sharingProfile := domain.EventProfile{

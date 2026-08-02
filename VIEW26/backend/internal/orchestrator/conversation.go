@@ -436,9 +436,13 @@ func deterministicConversationInsight(contract domain.AnalysisContract, results 
 	}
 	if len(results) == 1 {
 		source := results[0].answer.Insight
+		findings := source.KeyFindings
+		if len(findings) == 0 {
+			findings = deriveKeyFindings(results[0].run.Input.Name, source.Evidence)
+		}
 		return domain.Insight{
 			Headline: source.Headline, Summary: source.Summary, Why: source.Why, Confidence: source.Confidence,
-			RecommendedAction: source.RecommendedAction, Evidence: evidence, SQL: source.SQL,
+			RecommendedAction: source.RecommendedAction, KeyFindings: findings, Evidence: evidence, SQL: source.SQL,
 			ContextVersion: contract.ContextVersion, SchemaVersion: strings.Join(contract.SchemaVersions, ", "), TraceID: traceID,
 			Provenance: domain.InsightProvenance{Generator: "deterministic", Status: "ready", PromptVersion: agent.AnalyticsPromptVersion},
 		}
@@ -460,6 +464,7 @@ func deterministicConversationInsight(contract domain.AnalysisContract, results 
 	summary := "Each feature was routed to its own verified schema, entity grain, ClickHouse aggregate, and analysis playbook before portfolio synthesis."
 	why := "The context layer prevents a single generic SQL query from mixing incompatible events or entity IDs across features."
 	action := results[0].answer.Insight.RecommendedAction
+	findings := make([]domain.KeyFinding, 0, 3)
 	if len(rates) > 0 {
 		headline = fmt.Sprintf("%s leads observed feature completion at %.1f%%", rates[0].feature, rates[0].rate*100)
 		parts := make([]string, 0, len(rates))
@@ -469,10 +474,32 @@ func deterministicConversationInsight(contract domain.AnalysisContract, results 
 		summary = "Governed completion comparison: " + strings.Join(parts, "; ") + "."
 		why = "Every percentage uses that feature's published entry event, completion event, and semantic grain. The rates are comparable as product health signals, but not as a shared eligible-user experiment."
 		action = "Start with the largest high-volume completion gap, then use its funnel and segment follow-ups before prioritizing a product change."
+
+		// Rank the portfolio into findings: the leader, the laggard with the most
+		// room to move, and the spread that frames where to focus.
+		best, worst := rates[0], rates[len(rates)-1]
+		findings = append(findings, domain.KeyFinding{
+			Point:    fmt.Sprintf("%s leads at %.1f%% completion (%.0f entrants).", best.feature, best.rate*100, best.entrant),
+			Why:      "It sets the achievable bar in this portfolio; its funnel and segment structure is the reference pattern to compare weaker features against.",
+			Evidence: "feature completion comparison",
+			Severity: "low",
+		})
+		if len(rates) > 1 && best.rate-worst.rate > 0.05 {
+			severity := "medium"
+			if (best.rate-worst.rate) >= 0.2 && worst.entrant >= best.entrant*0.5 {
+				severity = "high"
+			}
+			findings = append(findings, domain.KeyFinding{
+				Point:    fmt.Sprintf("%s trails at %.1f%% — %.1f pp below the leader — on %.0f entrants.", worst.feature, worst.rate*100, (best.rate-worst.rate)*100, worst.entrant),
+				Why:      fmt.Sprintf("This is the largest completion gap in the portfolio; with real entrant volume behind it, closing %s returns more incremental conversions than polishing the leader.", worst.feature),
+				Evidence: "feature completion comparison",
+				Severity: severity,
+			})
+		}
 	}
 	return domain.Insight{
 		Headline: headline, Summary: summary, Why: why, Confidence: confidence, RecommendedAction: action,
-		Evidence: evidence, SQL: joinedSourceSQL(results), ContextVersion: contract.ContextVersion,
+		KeyFindings: findings, Evidence: evidence, SQL: joinedSourceSQL(results), ContextVersion: contract.ContextVersion,
 		SchemaVersion: strings.Join(contract.SchemaVersions, ", "), TraceID: traceID,
 		Provenance: domain.InsightProvenance{Generator: "deterministic", Status: "ready", PromptVersion: agent.AnalyticsPromptVersion},
 	}
@@ -525,35 +552,44 @@ func buildConversationCharts(question, mode string, results []conversationResult
 	return buildSingleChart(question, results, traceID)
 }
 
-// buildSingleChart returns exactly one chart that best matches the question's
-// intent — the chart most relevant to the specific thing that was asked.
+// buildSingleChart returns a focused set of charts for a non-dashboard answer:
+// the chart that best matches the question's intent leads, followed by the rest
+// of the feature's curated charts as supporting context. A PM asking about
+// drop-off still sees the trend and segments that explain it, so the analysis
+// reads as a coherent story rather than one isolated number. Charts are
+// deduplicated and capped so the answer stays scannable.
 func buildSingleChart(question string, results []conversationResult, traceID string) []domain.AnalyticsChart {
 	lower := strings.ToLower(question)
+	var primary *domain.AnalyticsChart
 	switch {
 	case strings.Contains(lower, "trend") || strings.Contains(lower, "over time") || strings.Contains(lower, "daily"):
-		if chart := conversationTrendChart(results, traceID); chart != nil {
-			return []domain.AnalyticsChart{*chart}
-		}
+		primary = conversationTrendChart(results, traceID)
 	case strings.Contains(lower, "funnel") || strings.Contains(lower, "drop") || strings.Contains(lower, "stage"):
-		if chart := conversationFunnelChart(results, traceID); chart != nil {
-			return []domain.AnalyticsChart{*chart}
-		}
+		primary = conversationFunnelChart(results, traceID)
 	case strings.Contains(lower, "segment") || strings.Contains(lower, "device") || strings.Contains(lower, "mobile") || strings.Contains(lower, " os ") || strings.Contains(lower, "destination") || strings.Contains(lower, "city") || strings.Contains(lower, "cities") || strings.Contains(lower, "country") || strings.Contains(lower, "countries") || strings.Contains(lower, "geograph"):
-		if chart := conversationSegmentChart(results, traceID); chart != nil {
-			return []domain.AnalyticsChart{*chart}
+		primary = conversationSegmentChart(results, traceID)
+	}
+
+	// Portfolio comparison question → lead with the cross-feature comparison.
+	if primary == nil && len(results) > 1 {
+		primary = portfolioCompletionChart(results, traceID)
+	}
+
+	charts := []domain.AnalyticsChart{}
+	if primary != nil {
+		charts = appendUniqueChart(charts, *primary)
+	}
+	// Add the rest of the feature's curated charts as supporting context so the
+	// PM can see the surrounding story, not just the single matched chart.
+	if len(results) == 1 && results[0].run.AnalyticsBundle != nil {
+		for _, chart := range results[0].run.AnalyticsBundle.Charts {
+			charts = appendUniqueChart(charts, chart)
 		}
 	}
-	// Portfolio comparison question → single comparison bar chart.
-	if len(results) > 1 {
-		if chart := portfolioCompletionChart(results, traceID); chart != nil {
-			return []domain.AnalyticsChart{*chart}
-		}
+	if len(charts) > 3 {
+		charts = charts[:3]
 	}
-	// Fall back to the single most representative chart from the feature bundle.
-	if len(results) == 1 && results[0].run.AnalyticsBundle != nil && len(results[0].run.AnalyticsBundle.Charts) > 0 {
-		return []domain.AnalyticsChart{results[0].run.AnalyticsBundle.Charts[0]}
-	}
-	return []domain.AnalyticsChart{}
+	return charts
 }
 
 // buildDashboardCharts assembles the full set of charts for a feature (or the
@@ -630,7 +666,7 @@ func portfolioKPIs(results []conversationResult) []domain.AnalyticsKPI {
 	if len(rates) > 1 {
 		kpis = append(kpis,
 			domain.AnalyticsKPI{Key: "trailing_feature", Label: "Trailing · " + weakest.feature, Value: weakest.rate * 100, FormattedValue: fmt.Sprintf("%.1f%%", weakest.rate*100), Unit: "%", Confidence: 0.9, SampleSize: weakest.entrants},
-			domain.AnalyticsKPI{Key: "completion_spread", Label: "Completion spread", Value: (best.rate - weakest.rate) * 100, FormattedValue: fmt.Sprintf("↑ %.1f points", (best.rate-weakest.rate)*100), Confidence: 0.88},
+			domain.AnalyticsKPI{Key: "completion_spread", Label: "Completion spread", Value: (best.rate - weakest.rate) * 100, FormattedValue: fmt.Sprintf("+%.1f pp", (best.rate-weakest.rate)*100), Confidence: 0.88},
 		)
 	}
 	if len(kpis) > 4 {
@@ -815,6 +851,101 @@ func bundleChart(bundle *domain.FeatureAnalyticsBundle, key string) *domain.Anal
 func evidenceRows(value any) []map[string]any {
 	rows, _ := value.([]map[string]any)
 	return rows
+}
+
+// deriveKeyFindings turns the governed aggregate evidence into a small ranked
+// list of grounded findings so a deterministic (non-LLM) answer still gives the
+// PM more than a single headline. Each finding is anchored to a real number:
+// the largest funnel drop, the widest segment gap, and the headline completion
+// rate. Findings that cannot be grounded in the evidence are simply not emitted.
+func deriveKeyFindings(feature string, evidence map[string]any) []domain.KeyFinding {
+	findings := make([]domain.KeyFinding, 0, 3)
+	prefix := ""
+	if feature != "" {
+		prefix = feature + " "
+	}
+
+	// Largest funnel drop-off — the stage where the most entities are lost.
+	if stages := evidenceRows(evidence["stages"]); len(stages) > 1 {
+		worstDrop, worstStage, prevStage := 0.0, "", ""
+		var lostAt, enteredAt float64
+		for i := 1; i < len(stages); i++ {
+			prev, okPrev := finiteConversationNumber(stages[i-1]["entities"])
+			cur, okCur := finiteConversationNumber(stages[i]["entities"])
+			if !okPrev || !okCur || prev <= 0 {
+				continue
+			}
+			drop := (prev - cur) / prev
+			if drop > worstDrop {
+				worstDrop, lostAt, enteredAt = drop, prev-cur, prev
+				worstStage = humanEvidenceLabel(fmt.Sprint(stages[i]["stage"]))
+				prevStage = humanEvidenceLabel(fmt.Sprint(stages[i-1]["stage"]))
+			}
+		}
+		if worstStage != "" && worstDrop > 0 {
+			severity := "medium"
+			if worstDrop >= 0.4 {
+				severity = "high"
+			} else if worstDrop < 0.15 {
+				severity = "low"
+			}
+			findings = append(findings, domain.KeyFinding{
+				Point:    fmt.Sprintf("The largest drop-off is at %q: %.0f%% of the %.0f entities from %q do not advance (%.0f lost).", worstStage, worstDrop*100, enteredAt, prevStage, lostAt),
+				Why:      fmt.Sprintf("This is the single biggest recoverable pool of %sconversion — fixing this step moves the completion rate more than any other change, and every entity lost here has already shown intent by reaching %q.", prefix, prevStage),
+				Evidence: fmt.Sprintf("funnel stage transition %s → %s", prevStage, worstStage),
+				Severity: severity,
+			})
+		}
+	}
+
+	// Widest segment gap — the cohort that under-converts relative to the best.
+	if segments := evidenceRows(evidence["segments"]); len(segments) > 1 {
+		best, weakest := metricExtremes(segments, "completion_rate")
+		bestRate, okB := finiteConversationNumber(best["completion_rate"])
+		weakRate, okW := finiteConversationNumber(weakest["completion_rate"])
+		if okB && okW && bestRate-weakRate > 0.05 {
+			dimension := humanEvidenceLabel(fmt.Sprint(weakest["dimension"]))
+			weakSeg := humanEvidenceLabel(fmt.Sprint(weakest["segment"]))
+			bestSeg := humanEvidenceLabel(fmt.Sprint(best["segment"]))
+			gap := (bestRate - weakRate) * 100
+			severity := "medium"
+			if gap >= 20 {
+				severity = "high"
+			}
+			findings = append(findings, domain.KeyFinding{
+				Point:    fmt.Sprintf("By %s, %q completes at %.1f%% versus %.1f%% for %q — a %.1f pp gap.", dimension, weakSeg, weakRate*100, bestRate*100, bestSeg, gap),
+				Why:      fmt.Sprintf("A gap this size means the %sexperience is not landing evenly; closing %q toward the %q cohort is a targeted lever the PM can own without a full-funnel rebuild.", prefix, weakSeg, bestSeg),
+				Evidence: fmt.Sprintf("segment completion by %s", dimension),
+				Severity: severity,
+			})
+		}
+	}
+
+	// Headline completion rate — the top-line health signal for the release.
+	for _, key := range []string{"completion_rate", "feature_completion_rate", "recovery_rate"} {
+		if rate, ok := finiteConversationNumber(evidence[key]); ok {
+			entrants, _ := finiteConversationNumber(evidence["entrants"])
+			if entrants == 0 {
+				entrants, _ = finiteConversationNumber(evidence["feature_entrants"])
+			}
+			sample := ""
+			if entrants > 0 {
+				sample = fmt.Sprintf(" across %.0f governed entrants", entrants)
+			}
+			findings = append(findings, domain.KeyFinding{
+				Point:    fmt.Sprintf("Overall completion sits at %.1f%%%s.", rate*100, sample),
+				Why:      fmt.Sprintf("This is the top-line signal for whether the %srelease is working; it frames how urgent the drop-off and segment gaps above are and sets the baseline any change is measured against.", prefix),
+				Evidence: humanEvidenceLabel(key),
+				Severity: "low",
+			})
+			break
+		}
+	}
+
+	if len(findings) > 4 {
+		findings = findings[:4]
+	}
+	return findings
 }
 
 func finiteConversationNumber(value any) (float64, bool) {

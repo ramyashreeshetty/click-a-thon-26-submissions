@@ -1,9 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MessageCircle, Inbox, LayoutGrid, Rows3, Plus, Activity, CircleDot,
+  Search, RotateCcw, ChevronDown, ArrowUp, ArrowUpRight, Flag, Sparkles,
+  ExternalLink, X, AlertCircle, Check, RefreshCw, Braces, Boxes,
+} from "lucide-react";
 
 import ContextGraph from "./context-graph";
 import { Chart, type AnalyticsChart } from "./charts";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 
 const API = process.env.NEXT_PUBLIC_FEATURELENS_API ?? "http://localhost:8080";
 const LIBRECHAT_URL = process.env.NEXT_PUBLIC_LIBRECHAT_URL ?? "";
@@ -16,7 +36,7 @@ function powerChatURL() {
   return "";
 }
 
-type View = "ask" | "decisions" | "releases" | "pipeline" | "context" | "trace";
+type View = "ask" | "decisions" | "dashboards" | "releases" | "pipeline" | "context" | "trace";
 type RuntimeStatus = { enabled: boolean; model?: string; prompt_version?: string; provider?: string };
 type EventPreflight = { rows: number; eventTypes: string[]; fields: number; firstEvent: string; lastEvent: string };
 type UploadFile = { name: string; size: number; text: string };
@@ -90,12 +110,20 @@ type LangfuseTraceInsights = {
   summary: { observation_count: number; score_count: number; generation_count: number; total_cost: number; total_tokens: number; latency: number };
 };
 
+type KeyFinding = {
+  point: string;
+  why: string;
+  evidence?: string;
+  severity?: string;
+};
+
 type Insight = {
   headline: string;
   summary: string;
   why: string;
   confidence: number;
   recommended_action: string;
+  key_findings?: KeyFinding[];
   sql?: string;
   trace_id?: string;
   provenance?: { generator: string; provider?: string; model?: string; prompt_version: string };
@@ -121,12 +149,13 @@ type AnalyticsKPI = {
   source_playbook?: string;
 };
 type ReleaseKPI = AnalyticsKPI & { evidence_label: string };
-type RankedInsight = { rank: number; headline: string; summary: string; recommended_action: string; confidence: number; playbook: string };
+type RankedInsight = { rank: number; headline: string; summary: string; why?: string; recommended_action: string; confidence: number; playbook: string };
 type FeatureAnalyticsBundle = {
   feature: string;
   status: string;
   context_version: number;
   schema_version: string;
+  generated_at?: string;
   kpis: AnalyticsKPI[];
   charts: AnalyticsChart[];
   insights: RankedInsight[];
@@ -403,7 +432,28 @@ function inspectNDJSON(text: string): EventPreflight {
 }
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
-  return <span className={`fl-brand-mark ${compact ? "compact" : ""}`} aria-hidden="true"><i /><i /><i /><i /></span>;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground",
+        compact ? "size-6" : "size-7"
+      )}
+    >
+      <Boxes className={compact ? "size-3.5" : "size-4"} />
+    </span>
+  );
+}
+
+// Small helper: a labelled statistic block used across dashboards and detail panes.
+function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2.5">
+      <span className="block text-xs text-muted-foreground">{label}</span>
+      <strong className="mt-1 block text-lg font-semibold leading-tight tabular-nums">{value}</strong>
+      {hint ? <small className="mt-0.5 block text-xs text-muted-foreground">{hint}</small> : null}
+    </div>
+  );
 }
 
 function sentenceCase(value: string) {
@@ -510,27 +560,128 @@ function releaseDecisionKPIs(bundle: FeatureAnalyticsBundle): ReleaseKPI[] {
   }));
 }
 
+const findingSeverity: Record<string, { dot: string; label: string }> = {
+  high: { dot: "bg-rose-500", label: "High impact" },
+  medium: { dot: "bg-amber-500", label: "Medium impact" },
+  low: { dot: "bg-emerald-500", label: "Context" },
+};
+
+function KeyFindingsList({ findings }: { findings: KeyFinding[] }) {
+  if (!findings.length) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <strong className="text-sm font-semibold">Key findings</strong>
+      <ol className="flex flex-col gap-2.5">
+        {findings.map((finding, index) => {
+          const severity = findingSeverity[finding.severity ?? ""] ?? findingSeverity.medium;
+          return (
+            <li key={`${index}-${finding.point.slice(0, 24)}`} className="flex gap-3 rounded-lg border bg-muted/30 p-3">
+              <span className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-background text-xs font-semibold tabular-nums text-muted-foreground ring-1 ring-border">{index + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="text-sm font-medium leading-snug">{finding.point}</p>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground"><span className={cn("size-1.5 rounded-full", severity.dot)} />{severity.label}</span>
+                </div>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{finding.why}</p>
+                {finding.evidence && <p className="mt-1 text-xs text-muted-foreground/80">Grounded in {finding.evidence}</p>}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function AnswerCard({ response, onFollowUp, onTrace }: { response: ConversationResponse; onFollowUp: (value: string) => void; onTrace: () => void }) {
   const generated = response.insight.provenance?.generator === "llm";
   const dashboard = response.mode === "dashboard";
   const kpis = response.kpis ?? [];
-  return <article className={`fl-answer ${dashboard ? "dashboard" : "single"}`}>
-    <div className="fl-answer-author"><BrandMark compact /><div><strong>FeatureLens AI</strong><span>{generated ? "LLM synthesis" : "Governed synthesis"} · context v{response.context_version}</span></div><b>{Math.round(response.insight.confidence * 100)}% confidence</b></div>
-    <div className="fl-scope-chips">{dashboard && <span className="fl-mode-chip">◫ Dashboard</span>}{response.feature_scope.map((feature) => <span key={feature}>{feature}</span>)}</div>
-    <h2>{response.insight.headline}</h2>
-    <p className="fl-answer-summary">{response.insight.summary}</p>
-    {dashboard
-      ? <>
-          {kpis.length > 0 && <div className="fl-answer-kpis">{kpis.map((kpi) => <div key={kpi.key}><span>{kpi.label}</span><strong>{kpi.formatted_value}</strong><small>{Math.round(kpi.confidence * 100)}% confidence</small></div>)}</div>}
-          {response.charts?.length > 0 && <div className="fl-answer-charts dashboard">{response.charts.map((chart) => <Chart key={`${response.insight.trace_id}-${chart.key}`} chart={chart} />)}</div>}
-        </>
-      : response.charts?.length > 0 && <div className="fl-answer-charts single">{response.charts.slice(0, 1).map((chart) => <Chart key={`${response.insight.trace_id}-${chart.key}`} chart={chart} />)}</div>}
-    <div className="fl-decision-row"><div><i>↗</i><span><strong>Why it matters</strong><p>{response.insight.why}</p></span></div><div><i>⚑</i><span><strong>Recommended next step</strong><p>{response.insight.recommended_action}</p></span></div></div>
-    {(response.contract.limitations?.length ?? 0) > 0 && <p className="fl-boundary"><strong>Evidence boundary</strong>{response.contract.limitations?.[0]}</p>}
-    <div className="fl-trust-row"><span>◉ {response.sources.length} governed source{response.sources.length === 1 ? "" : "s"}</span><button onClick={onTrace}>View trace ↗</button></div>
-    <details className="fl-evidence"><summary>How this answer was generated <span>⌄</span></summary><div>{response.sources.map((source) => <article key={`${source.contract.feature}-${source.insight.trace_id}`}><span>{source.contract.feature}</span><strong>{source.insight.headline}</strong><small>{source.contract.playbook} · {source.contract.answerability}</small>{source.insight.sql && <details><summary>View ClickHouse query</summary><pre>{source.insight.sql}</pre></details>}</article>)}</div></details>
-    <div className="fl-followups">{response.follow_up_prompts.map((prompt) => <button key={prompt} onClick={() => onFollowUp(prompt)}>✦ {prompt}</button>)}</div>
-  </article>;
+  const confidencePct = Math.round(response.insight.confidence * 100);
+  const confidenceVariant = confidencePct >= 75 ? "secondary" : confidencePct >= 55 ? "outline" : "destructive";
+  return (
+    <Card className={cn("gap-4", dashboard ? "w-full" : "max-w-3xl")}>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <BrandMark compact />
+          <div className="min-w-0 flex-1">
+            <strong className="block text-sm font-semibold">FeatureLens AI</strong>
+            <span className="text-xs text-muted-foreground">{generated ? "LLM synthesis" : "Governed synthesis"} · context v{response.context_version}</span>
+          </div>
+          <Badge variant={confidenceVariant}>{confidencePct}% confidence</Badge>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {dashboard && <Badge variant="outline"><LayoutGrid className="size-3" /> Dashboard</Badge>}
+          {response.feature_scope.map((feature) => <Badge key={feature} variant="secondary">{feature}</Badge>)}
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold leading-snug">{response.insight.headline}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{response.insight.summary}</p>
+        </div>
+
+        {dashboard ? (
+          <>
+            {kpis.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{kpis.map((kpi) => <Stat key={kpi.key} label={kpi.label} value={kpi.formatted_value} hint={`${Math.round(kpi.confidence * 100)}% confidence`} />)}</div>}
+            {response.charts?.length > 0 && <div className="grid gap-3 lg:grid-cols-2">{response.charts.map((chart) => <Chart key={`${response.insight.trace_id}-${chart.key}`} chart={chart} />)}</div>}
+          </>
+        ) : response.charts?.length > 0 && <div className="grid gap-3 lg:grid-cols-2 [&>*:first-child:nth-last-child(odd)]:lg:col-span-2">{response.charts.map((chart) => <Chart key={`${response.insight.trace_id}-${chart.key}`} chart={chart} />)}</div>}
+
+        {(response.insight.key_findings?.length ?? 0) > 0 && <KeyFindingsList findings={response.insight.key_findings!} />}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex gap-2.5 rounded-lg border bg-muted/40 p-3">
+            <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
+            <span><strong className="block text-sm font-medium">Why it matters</strong><p className="mt-0.5 text-sm text-muted-foreground">{response.insight.why}</p></span>
+          </div>
+          <div className="flex gap-2.5 rounded-lg border bg-muted/40 p-3">
+            <Flag className="size-4 shrink-0 text-muted-foreground" />
+            <span><strong className="block text-sm font-medium">Recommended next step</strong><p className="mt-0.5 text-sm text-muted-foreground">{response.insight.recommended_action}</p></span>
+          </div>
+        </div>
+
+        {(response.contract.limitations?.length ?? 0) > 0 && (
+          <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground"><strong className="mr-1.5 font-medium text-foreground">Evidence boundary</strong>{response.contract.limitations?.[0]}</p>
+        )}
+
+        <div className="flex items-center justify-between text-sm">
+          <span className="flex items-center gap-1.5 text-muted-foreground"><CircleDot className="size-3.5" /> {response.sources.length} governed source{response.sources.length === 1 ? "" : "s"}</span>
+          <Button variant="ghost" size="sm" onClick={onTrace}>View trace <ExternalLink className="size-3.5" /></Button>
+        </div>
+
+        <Collapsible className="rounded-lg border">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium">
+            How this answer was generated
+            <ChevronDown className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="flex flex-col gap-2 border-t p-3">
+            {response.sources.map((source) => (
+              <div key={`${source.contract.feature}-${source.insight.trace_id}`} className="rounded-md border bg-muted/30 p-2.5">
+                <span className="text-xs font-medium text-muted-foreground">{source.contract.feature}</span>
+                <strong className="mt-0.5 block text-sm">{source.insight.headline}</strong>
+                <small className="text-xs text-muted-foreground">{source.contract.playbook} · {source.contract.answerability}</small>
+                {source.insight.sql && (
+                  <details className="mt-1.5 text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">View ClickHouse query</summary>
+                    <pre className="mt-1.5 overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs">{source.insight.sql}</pre>
+                  </details>
+                )}
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+
+        <div className="flex flex-wrap gap-2">
+          {response.follow_up_prompts.map((prompt) => (
+            <Button key={prompt} variant="outline" size="sm" className="h-auto whitespace-normal py-1.5 text-left" onClick={() => onFollowUp(prompt)}>
+              <Sparkles className="size-3.5 shrink-0" /> {prompt}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 const observationNames: Record<string, string> = {
@@ -600,7 +751,7 @@ function TraceWorkspace({ insight, tracing }: { insight?: Insight; tracing: Runt
     if (issueScore) setIssue(String(issueScore.value));
   }, [langfuse]);
 
-  if (!trace) return <div className="fl-empty-state"><span>⌁</span><strong>No analytical trace selected</strong><p>Ask a question or select a completed feature insight to inspect user input, context resolution, ClickHouse queries, and synthesis.</p></div>;
+  if (!trace) return <EmptyState icon={<Search className="size-6" />} title="No analytical trace selected" body="Ask a question or select a completed feature insight to inspect user input, context resolution, ClickHouse queries, and synthesis." />;
 
   const step = trace.steps.find((item) => item.id === selected) ?? trace.steps[0];
   const observationFor = (item?: AnalysisTraceStep) => {
@@ -643,34 +794,294 @@ function TraceWorkspace({ insight, tracing }: { insight?: Insight; tracing: Runt
 
   const remoteInput = observation?.input ?? step?.input ?? {};
   const remoteOutput = observation?.output ?? step?.output ?? {};
-  return <div className="fl-trace-workspace">
-    <div className="fl-trace-summary">
-      <div><span>Trace</span><code>{compactID(trace.trace_id)}</code></div><div><span>Role</span><strong>{trace.role.replaceAll("_", " ")}</strong></div>
-      <div><span>Context</span><strong>v{trace.context_version}</strong></div><div><span>Schema</span><strong>{trace.schema_version}</strong></div>
-      <div><span>Rows</span><strong>{trace.dataset_rows.toLocaleString()}</strong></div><div><span>Quality</span><strong className={helpfulScore?.value === false ? "warning" : ""}>{qualityLabel}</strong></div>
-      <div><span>LLM cost</span><strong>{costLabel}</strong></div><div><span>Langfuse</span><strong>{statusLabel}</strong></div>
-    </div>
-    {syncError && <div className="fl-trace-sync-warning"><span>Langfuse is temporarily unavailable.</span><button onClick={() => setRefresh((value) => value + 1)}>Retry</button></div>}
-    <div className="fl-trace-body">
-      <nav>{trace.steps.map((item, index) => { const signalCount = scoresFor(item).length; return <button key={item.id} className={item.id === step?.id ? "active" : ""} onClick={() => setSelected(item.id)}><i>{String(index + 1).padStart(2, "0")}</i><span><strong>{item.id.replaceAll(".", " / ")}</strong><small>{item.kind} · {item.duration_ms}ms{item.observation_id ? " · linked" : ""}</small></span><b className={signalCount ? "signals" : ""}>{signalCount || (item.status === "completed" ? "✓" : item.status === "skipped" ? "–" : "!")}</b></button>; })}</nav>
-      <article className="fl-trace-detail">
-        <header><div><span>{step?.kind}{observation?.type ? ` · ${observation.type.toLowerCase()}` : ""}</span><h3>{step?.id.replaceAll(".", " / ")}</h3></div><div className="fl-trace-detail-actions"><code>{step?.duration_ms ?? 0} ms</code>{tracing?.enabled && <button onClick={() => setRefresh((value) => value + 1)} disabled={syncState === "syncing"}>Refresh</button>}{langfuse?.url && <a href={langfuse.url} target="_blank" rel="noreferrer">Open in Langfuse ↗</a>}</div></header>
-        {step?.error && <p className="fl-inline-error">{step.error}</p>}
-        <div className="fl-trace-tabs" role="tablist" aria-label="Trace observation details">
-          <button className={tab === "io" ? "active" : ""} onClick={() => setTab("io")} role="tab" aria-selected={tab === "io"}>Input / output</button>
-          <button className={tab === "evaluations" ? "active" : ""} onClick={() => setTab("evaluations")} role="tab" aria-selected={tab === "evaluations"}>Evaluations {scores.length > 0 && <b>{scores.length}</b>}</button>
-          <button className={tab === "metadata" ? "active" : ""} onClick={() => setTab("metadata")} role="tab" aria-selected={tab === "metadata"}>Metadata</button>
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+        <Stat label="Trace" value={<code className="text-sm font-mono">{compactID(trace.trace_id)}</code>} />
+        <Stat label="Role" value={<span className="text-sm capitalize">{trace.role.replaceAll("_", " ")}</span>} />
+        <Stat label="Context" value={`v${trace.context_version}`} />
+        <Stat label="Schema" value={<span className="text-sm">{trace.schema_version}</span>} />
+        <Stat label="Rows" value={trace.dataset_rows.toLocaleString()} />
+        <Stat label="Quality" value={<span className={cn("text-sm", helpfulScore?.value === false && "text-amber-600 dark:text-amber-400")}>{qualityLabel}</span>} />
+        <Stat label="LLM cost" value={<span className="text-sm">{costLabel}</span>} />
+        <Stat label="Langfuse" value={<span className="text-sm">{statusLabel}</span>} />
+      </div>
+      {syncError && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Langfuse is temporarily unavailable.</span>
+          <Button variant="outline" size="sm" onClick={() => setRefresh((value) => value + 1)}>Retry</Button>
         </div>
-        {tab === "io" && <section className="fl-trace-io"><div><span>Input</span><pre>{JSON.stringify(remoteInput, null, 2)}</pre></div><div><span>Output</span><pre>{JSON.stringify(remoteOutput, null, 2)}</pre></div></section>}
-        {tab === "evaluations" && <section className={`fl-trace-evaluations ${isFinalAnswerStep ? "" : "single"}`}>
-          <div className="fl-score-list">{scores.length ? scores.map((score) => <article key={score.id} className={typeof score.value === "boolean" ? (score.value ? "passed" : "review") : ""}><header><div><span>{score.source}</span><strong>{score.name.replaceAll("_", " ")}</strong></div><b>{scoreDisplay(score)}</b></header>{score.comment && <p>{score.comment}</p>}<footer>{score.data_type.toLowerCase()}{score.timestamp ? ` · ${formatTime(score.timestamp)}` : ""}{score.author_user_id ? " · human annotation" : ""}</footer></article>) : isEvaluationTarget ? <div className="fl-trace-tab-empty"><strong>Evaluation pending</strong><p>This step is eligible for Langfuse evaluation. Scores will appear when its configured judge or reviewer completes.</p></div> : <div className="fl-trace-tab-empty"><strong>No evaluation configured for this step</strong><p>Evaluations currently run on the generated insight and final answer.</p></div>}</div>
-          {isFinalAnswerStep && <aside className="fl-trace-feedback"><span>Product feedback</span><h4>Was the final answer useful?</h4><div className="fl-feedback-vote"><button className={helpful === true ? "active" : ""} aria-pressed={helpful === true} onClick={() => { setHelpful(true); setIssue(""); setFeedbackState("idle"); }}>↑ Yes</button><button className={helpful === false ? "active negative" : ""} aria-pressed={helpful === false} onClick={() => { setHelpful(false); setFeedbackState("idle"); }}>↓ No</button></div>{helpful === false && <label><span>What needs attention?</span><select value={issue} onChange={(event) => setIssue(event.target.value)}><option value="">Choose a category</option><option value="wrong_answer">Wrong answer</option><option value="missing_context">Missing context</option><option value="bad_sql">Incorrect SQL or evidence</option><option value="unclear">Unclear explanation</option><option value="other">Other</option></select></label>}<label><span>Comment <small>{comment.length}/500</small></span><textarea maxLength={500} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add evidence or context for the reviewer…" /></label><button className="fl-feedback-submit" onClick={() => void submitFeedback()} disabled={!tracing?.enabled || syncState !== "synced" || helpful === null || feedbackState === "saving"}>{feedbackState === "saving" ? "Saving…" : "Save feedback"}</button>{feedbackMessage && <p className={feedbackState}>{feedbackMessage}</p>}{!tracing?.enabled && <p>Connect Langfuse to enable feedback.</p>}</aside>}
-        </section>}
-        {tab === "metadata" && <section className="fl-trace-metadata">{observation ? <><dl><div><dt>Observation ID</dt><dd><code>{observation.id}</code></dd></div><div><dt>Observation</dt><dd>{observation.name ?? "—"}</dd></div><div><dt>Type</dt><dd>{observation.type?.toLowerCase() ?? "—"}</dd></div><div><dt>Status</dt><dd>{observation.level?.toLowerCase() ?? "default"}</dd></div><div><dt>Model</dt><dd>{observation.model ?? "—"}</dd></div><div><dt>Environment</dt><dd>{observation.environment ?? "default"}</dd></div><div><dt>Version</dt><dd>{observation.version ?? "—"}</dd></div><div><dt>Release</dt><dd>{observation.release ?? "—"}</dd></div><div><dt>Latency</dt><dd>{observation.latency ? `${observation.latency.toFixed(2)}s` : "—"}</dd></div><div><dt>Cost</dt><dd>{observation.cost ? `$${observation.cost.toFixed(5)}` : "—"}</dd></div></dl><div><span>Usage</span><pre>{JSON.stringify(observation.usage ?? {}, null, 2)}</pre></div></> : <div className="fl-trace-tab-empty"><strong>Remote metadata is not available</strong><p>The local execution path remains available while this observation syncs to Langfuse.</p></div>}</section>}
-      </article>
+      )}
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <nav className="flex flex-col gap-1.5">
+          {trace.steps.map((item, index) => {
+            const signalCount = scoresFor(item).length;
+            return (
+              <button key={item.id} onClick={() => setSelected(item.id)} className={cn("flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors", item.id === step?.id ? "border-primary bg-accent" : "hover:bg-accent")}>
+                <i className="grid size-7 shrink-0 place-items-center rounded-md bg-muted font-mono text-xs not-italic">{String(index + 1).padStart(2, "0")}</i>
+                <span className="min-w-0 flex-1"><strong className="block truncate text-sm font-medium">{item.id.replaceAll(".", " / ")}</strong><small className="text-xs text-muted-foreground">{item.kind} · {item.duration_ms}ms{item.observation_id ? " · linked" : ""}</small></span>
+                {signalCount
+                  ? <Badge variant="secondary" className="shrink-0">{signalCount}</Badge>
+                  : <b className={cn("text-sm", item.status === "completed" ? "text-emerald-600 dark:text-emerald-400" : item.status === "skipped" ? "text-muted-foreground" : "text-destructive")}>{item.status === "completed" ? "✓" : item.status === "skipped" ? "–" : "!"}</b>}
+              </button>
+            );
+          })}
+        </nav>
+        <Card>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0"><span className="text-xs text-muted-foreground">{step?.kind}{observation?.type ? ` · ${observation.type.toLowerCase()}` : ""}</span><h3 className="truncate text-base font-semibold">{step?.id.replaceAll(".", " / ")}</h3></div>
+              <div className="flex items-center gap-2">
+                <code className="shrink-0 rounded-md bg-muted px-2 py-1 font-mono text-xs">{step?.duration_ms ?? 0} ms</code>
+                {tracing?.enabled && <Button variant="outline" size="sm" onClick={() => setRefresh((value) => value + 1)} disabled={syncState === "syncing"}>Refresh</Button>}
+                {langfuse?.url && <Button asChild variant="ghost" size="sm"><a href={langfuse.url} target="_blank" rel="noreferrer">Open in Langfuse <ExternalLink className="size-3.5" /></a></Button>}
+              </div>
+            </div>
+            {step?.error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-sm text-destructive">{step.error}</p>}
+
+            <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
+              <TabsList>
+                <TabsTrigger value="io">Input / output</TabsTrigger>
+                <TabsTrigger value="evaluations">Evaluations {scores.length > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 justify-center px-1">{scores.length}</Badge>}</TabsTrigger>
+                <TabsTrigger value="metadata">Metadata</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {tab === "io" && (
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div><span className="text-xs font-medium text-muted-foreground">Input</span><pre className="mt-1.5 max-h-72 overflow-auto rounded-md bg-muted p-2.5 font-mono text-xs">{JSON.stringify(remoteInput, null, 2)}</pre></div>
+                <div><span className="text-xs font-medium text-muted-foreground">Output</span><pre className="mt-1.5 max-h-72 overflow-auto rounded-md bg-muted p-2.5 font-mono text-xs">{JSON.stringify(remoteOutput, null, 2)}</pre></div>
+              </div>
+            )}
+
+            {tab === "evaluations" && (
+              <div className={cn("grid gap-3", isFinalAnswerStep && "lg:grid-cols-[1fr_320px]")}>
+                <div className="flex flex-col gap-2">
+                  {scores.length ? scores.map((score) => (
+                    <div key={score.id} className={cn("rounded-lg border p-3", typeof score.value === "boolean" && (score.value ? "border-emerald-500/40 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"))}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div><span className="text-xs text-muted-foreground">{score.source}</span><strong className="block text-sm font-medium capitalize">{score.name.replaceAll("_", " ")}</strong></div>
+                        <b className="text-sm font-semibold">{scoreDisplay(score)}</b>
+                      </div>
+                      {score.comment && <p className="mt-1.5 text-sm text-muted-foreground">{score.comment}</p>}
+                      <footer className="mt-1.5 text-xs text-muted-foreground">{score.data_type.toLowerCase()}{score.timestamp ? ` · ${formatTime(score.timestamp)}` : ""}{score.author_user_id ? " · human annotation" : ""}</footer>
+                    </div>
+                  )) : isEvaluationTarget ? (
+                    <div className="rounded-lg border border-dashed p-4 text-center"><strong className="block text-sm font-medium">Evaluation pending</strong><p className="mt-1 text-sm text-muted-foreground">This step is eligible for Langfuse evaluation. Scores will appear when its configured judge or reviewer completes.</p></div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-4 text-center"><strong className="block text-sm font-medium">No evaluation configured for this step</strong><p className="mt-1 text-sm text-muted-foreground">Evaluations currently run on the generated insight and final answer.</p></div>
+                  )}
+                </div>
+                {isFinalAnswerStep && (
+                  <aside className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+                    <span className="text-xs text-muted-foreground">Product feedback</span>
+                    <h4 className="text-sm font-semibold">Was the final answer useful?</h4>
+                    <div className="flex gap-2">
+                      <Button variant={helpful === true ? "default" : "outline"} size="sm" aria-pressed={helpful === true} onClick={() => { setHelpful(true); setIssue(""); setFeedbackState("idle"); }}>↑ Yes</Button>
+                      <Button variant={helpful === false ? "destructive" : "outline"} size="sm" aria-pressed={helpful === false} onClick={() => { setHelpful(false); setFeedbackState("idle"); }}>↓ No</Button>
+                    </div>
+                    {helpful === false && (
+                      <label className="flex flex-col gap-1.5 text-sm">
+                        <span className="font-medium">What needs attention?</span>
+                        <select value={issue} onChange={(event) => setIssue(event.target.value)} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                          <option value="">Choose a category</option>
+                          <option value="wrong_answer">Wrong answer</option>
+                          <option value="missing_context">Missing context</option>
+                          <option value="bad_sql">Incorrect SQL or evidence</option>
+                          <option value="unclear">Unclear explanation</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </label>
+                    )}
+                    <label className="flex flex-col gap-1.5 text-sm">
+                      <span className="flex items-center justify-between font-medium">Comment <small className="font-normal text-muted-foreground">{comment.length}/500</small></span>
+                      <Textarea maxLength={500} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add evidence or context for the reviewer…" />
+                    </label>
+                    <Button size="sm" onClick={() => void submitFeedback()} disabled={!tracing?.enabled || syncState !== "synced" || helpful === null || feedbackState === "saving"}>{feedbackState === "saving" ? "Saving…" : "Save feedback"}</Button>
+                    {feedbackMessage && <p className={cn("text-xs", feedbackState === "error" ? "text-destructive" : "text-muted-foreground")}>{feedbackMessage}</p>}
+                    {!tracing?.enabled && <p className="text-xs text-muted-foreground">Connect Langfuse to enable feedback.</p>}
+                  </aside>
+                )}
+              </div>
+            )}
+
+            {tab === "metadata" && (observation ? (
+              <div className="flex flex-col gap-3">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                  {([
+                    ["Observation ID", <code key="id" className="font-mono text-xs">{observation.id}</code>],
+                    ["Observation", observation.name ?? "—"],
+                    ["Type", observation.type?.toLowerCase() ?? "—"],
+                    ["Status", observation.level?.toLowerCase() ?? "default"],
+                    ["Model", observation.model ?? "—"],
+                    ["Environment", observation.environment ?? "default"],
+                    ["Version", observation.version ?? "—"],
+                    ["Release", observation.release ?? "—"],
+                    ["Latency", observation.latency ? `${observation.latency.toFixed(2)}s` : "—"],
+                    ["Cost", observation.cost ? `$${observation.cost.toFixed(5)}` : "—"],
+                  ] as const).map(([dt, dd], index) => (
+                    <div key={index} className="flex flex-col"><dt className="text-xs text-muted-foreground">{dt}</dt><dd className="font-medium">{dd}</dd></div>
+                  ))}
+                </dl>
+                <div><span className="text-xs font-medium text-muted-foreground">Usage</span><pre className="mt-1.5 max-h-60 overflow-auto rounded-md bg-muted p-2.5 font-mono text-xs">{JSON.stringify(observation.usage ?? {}, null, 2)}</pre></div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed p-4 text-center"><strong className="block text-sm font-medium">Remote metadata is not available</strong><p className="mt-1 text-sm text-muted-foreground">The local execution path remains available while this observation syncs to Langfuse.</p></div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  </div>;
+  );
 }
+
+// Shared empty-state used across every view when there's nothing to show yet.
+function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-16 text-center">
+      <div className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">{icon}</div>
+      <strong className="text-base font-semibold">{title}</strong>
+      <p className="max-w-md text-sm text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
+// Scrollable page container shared by every non-chat view.
+function PageScroll({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">{children}</div>
+    </div>
+  );
+}
+
+function PageTitle({ title, subtitle, action }: { title: string; subtitle: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-1 text-sm text-muted-foreground">{subtitle}</p></div>
+      {action}
+    </div>
+  );
+}
+
+function SectionTitle({ label, count }: { label: string; count?: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <h2 className="text-sm font-semibold">{label}</h2>
+      {count !== undefined && <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1.5">{count}</Badge>}
+    </div>
+  );
+}
+
+
+// The Context Agent, when it evolves the graph for a feature, records exactly
+// what a dashboard should watch: the completion metric (numerator/denominator
+// events + grain), the governed dimensions the metric can be segmented by, and
+// the analysis playbooks that resolve each PM question. FeatureDashboard reads
+// those learnings straight off the published context so a new feature gets a
+// meaningful realtime dashboard with no per-feature configuration.
+type FeatureLearnings = {
+  metricLabel?: string;
+  numerator?: string;
+  denominator?: string;
+  grain?: string;
+  dimensions: string[];
+  playbooks: string[];
+  questionCount: number;
+  eventCount: number;
+};
+
+function learningsFor(run: Run): FeatureLearnings {
+  const nodes = run.context?.nodes ?? [];
+  // The backend's Slug() uses underscores (e.g. "express_checkout") while the
+  // frontend slugify() uses hyphens, so derive the feature slug from the actual
+  // feature node in the published context rather than guessing it from the name.
+  const featureNode = nodes.find((node) => node.type === "feature" && normalize(node.name) === normalize(run.input?.name));
+  const slugProp = (featureNode?.properties as Record<string, unknown> | undefined)?.slug;
+  const slug = typeof slugProp === "string" && slugProp ? slugProp : (featureNode?.key.replace("feature:", "") ?? slugify(run.input?.name ?? ""));
+  const metric = nodes.find((node) => node.type === "metric" && node.key.startsWith(`metric:${slug}`));
+  const props = (metric?.properties ?? {}) as Record<string, unknown>;
+  let dims = nodes
+    .filter((node) => node.type === "dimension" && node.key.startsWith(`dimension:${slug}:`))
+    .map((node) => String((node.properties as Record<string, unknown> | undefined)?.field ?? node.key.split(":").at(-1)))
+    .filter(Boolean);
+  // Some context versions record the metric's segmentable dimensions inline on
+  // the metric node rather than as standalone dimension nodes — fall back to that.
+  if (dims.length === 0 && Array.isArray(props.dimensions)) {
+    dims = (props.dimensions as unknown[]).map(String).filter(Boolean);
+  }
+  const playbooks = [...new Set((run.analytics_bundle?.playbooks ?? []).map((p) => p.replace(/^playbook:/, "").replace(/:v\d+$/, "").replaceAll("-", " ")))];
+  return {
+    metricLabel: metric?.name,
+    numerator: typeof props.numerator_event === "string" ? props.numerator_event : undefined,
+    denominator: typeof props.denominator_event === "string" ? props.denominator_event : undefined,
+    grain: typeof props.grain === "string" ? props.grain : undefined,
+    dimensions: dims,
+    playbooks,
+    questionCount: nodes.filter((node) => node.type === "business_question" && node.key.startsWith(`question:${slug}:`)).length,
+    eventCount: Object.keys(run.profile?.event_counts ?? {}).length,
+  };
+}
+
+function FeatureDashboard({ run, lastRefreshed, refreshing, onManualRefresh }: { run: Run; lastRefreshed: number | null; refreshing: boolean; onManualRefresh: () => void }) {
+  const bundle = run.analytics_bundle;
+  const learnings = useMemo(() => learningsFor(run), [run]);
+  if (!bundle) {
+    return <EmptyState icon={<Sparkles className="size-6" />} title="Dashboard is being assembled" body="Once the Analytics Agent finishes querying the published context, this feature's realtime dashboard appears here automatically." />;
+  }
+  const kpis = releaseDecisionKPIs(bundle);
+  const topInsight = bundle.insights?.[0];
+  const statusLabel = bundle.status === "ready" ? "Live metrics" : bundle.status === "partial" ? "Partial data" : bundle.status === "simulation" ? "Simulated" : "No data";
+  const statusDot = bundle.status === "ready" ? "bg-emerald-500" : bundle.status === "partial" ? "bg-amber-500" : bundle.status === "simulation" ? "bg-violet-500" : "bg-muted-foreground";
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-xs text-muted-foreground">{run.input?.name} · context v{bundle.context_version} · {bundle.schema_version}</span>
+          <h2 className="text-lg font-semibold">{learnings.metricLabel ?? `${run.input?.name} performance`}</h2>
+          {learnings.numerator && learnings.denominator && <p className="mt-0.5 text-sm text-muted-foreground">Auto-derived by the Context Agent: <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{learnings.numerator.replaceAll("_", " ")}</code> over <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">{learnings.denominator.replaceAll("_", " ")}</code>{learnings.grain ? ` per ${learnings.grain}` : ""}.</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1.5"><span className={cn("size-1.5 rounded-full", statusDot)} />{statusLabel}</Badge>
+          <Button variant="outline" size="sm" onClick={onManualRefresh} disabled={refreshing}><RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />{refreshing ? "Refreshing…" : "Refresh"}</Button>
+          <small className="text-xs text-muted-foreground">{lastRefreshed ? `updated ${formatTime(new Date(lastRefreshed).toISOString())}` : bundle.generated_at ? `generated ${formatTime(bundle.generated_at)}` : "live"}</small>
+        </div>
+      </div>
+
+      {kpis.length > 0 && <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{kpis.map((kpi) => <Stat key={kpi.key} label={kpi.label} value={kpi.formatted_value} hint={`${Math.round(kpi.confidence * 100)}% confidence${kpi.sample_size ? ` · n=${Math.round(kpi.sample_size).toLocaleString()}` : ""}`} />)}</div>}
+
+      <Card>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <div><span className="text-xs font-medium text-muted-foreground">Segmentable by</span><div className="mt-1.5 flex flex-wrap gap-1">{learnings.dimensions.length ? learnings.dimensions.map((dim) => <Badge key={dim} variant="secondary">{dim.replaceAll("_", " ")}</Badge>) : <em className="text-sm text-muted-foreground">No governed dimensions</em>}</div></div>
+          <div><span className="text-xs font-medium text-muted-foreground">Analysis playbooks</span><div className="mt-1.5 flex flex-wrap gap-1">{learnings.playbooks.length ? learnings.playbooks.map((p) => <Badge key={p} variant="outline">{p}</Badge>) : <em className="text-sm text-muted-foreground">—</em>}</div></div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div><strong className="block text-lg font-semibold tabular-nums">{learnings.eventCount}</strong><span className="text-xs text-muted-foreground">events</span></div>
+            <div><strong className="block text-lg font-semibold tabular-nums">{learnings.questionCount}</strong><span className="text-xs text-muted-foreground">questions</span></div>
+            <div><strong className="block text-lg font-semibold tabular-nums">{run.profile?.rows?.toLocaleString() ?? "—"}</strong><span className="text-xs text-muted-foreground">rows</span></div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {bundle.charts.length > 0 && <div className="grid gap-3 lg:grid-cols-2">{bundle.charts.map((chart) => <Chart key={chart.key} chart={chart} />)}</div>}
+
+      {topInsight && (
+        <Card>
+          <CardContent className="flex flex-col gap-2">
+            <div className="flex items-center justify-between"><span className="text-xs font-medium text-muted-foreground">Lead recommendation</span><Badge variant="secondary">{Math.round(topInsight.confidence * 100)}%</Badge></div>
+            <h3 className="text-base font-semibold">{topInsight.headline}</h3>
+            <p className="text-sm text-muted-foreground">{topInsight.summary}</p>
+            {topInsight.why && <div className="flex gap-2.5 rounded-lg border bg-muted/40 p-3"><ArrowUpRight className="size-4 shrink-0 text-muted-foreground" /><span><strong className="block text-sm font-medium">Why it matters</strong><p className="mt-0.5 text-sm text-muted-foreground">{topInsight.why}</p></span></div>}
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm"><strong className="mr-1.5 font-medium">Recommended next step</strong><span className="text-muted-foreground">{topInsight.recommended_action}</span></div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(bundle.limitations?.length ?? 0) > 0 && <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground"><strong className="mr-1.5 font-medium text-foreground">Evidence boundary</strong>{bundle.limitations?.[0]}</p>}
+    </div>
+  );
+}
+
 
 export default function ProductWorkspace() {
   const [view, setView] = useState<View>("ask");
@@ -694,6 +1105,9 @@ export default function ProductWorkspace() {
   const [chatsHydrated, setChatsHydrated] = useState(false);
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [dashboardRunId, setDashboardRunId] = useState<string | null>(null);
+  const [dashboardRefreshedAt, setDashboardRefreshedAt] = useState<number | null>(null);
+  const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [powerChatOpen, setPowerChatOpen] = useState(false);
@@ -713,6 +1127,8 @@ export default function ProductWorkspace() {
   const activeChatBusy = busyChatId !== null && busyChatId === activeChat?.id;
   const pendingRuns = useMemo(() => runs.filter((item) => item.stage === "awaiting_approval"), [runs]);
   const publishedRuns = useMemo(() => runs.filter((item) => item.stage === "completed" && item.context), [runs]);
+  const dashboardRuns = useMemo(() => publishedRuns.filter((item) => item.analytics_bundle), [publishedRuns]);
+  const dashboardRun = useMemo(() => dashboardRuns.find((item) => item.id === dashboardRunId) ?? dashboardRuns[0] ?? null, [dashboardRuns, dashboardRunId]);
   const customRuns = useMemo(() => runs.filter((item) => !knownFeatureNames.has(normalize(item.input?.name))), [runs]);
   const selectedPackage = featurePackages.find((item) => item.id === selection);
   const selectedCustomRun = customRuns.find((item) => customFeatureID(item) === selection);
@@ -787,6 +1203,16 @@ export default function ProductWorkspace() {
   useEffect(() => {
     if (conversation.length || chatBusy) endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [conversation, chatBusy]);
+
+  // Realtime dashboard: while the dashboards view is open, re-fetch the selected
+  // feature's analytics bundle every 20s so KPIs, funnel, and trend stay live.
+  useEffect(() => {
+    if (view !== "dashboards" || !dashboardRun?.id) return;
+    const id = dashboardRun.id;
+    const timer = setInterval(() => void refreshDashboard(id), 20_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardRun?.id]);
 
   function updateChatById(id: string, updater: (chat: Chat) => Chat) {
     setChats((current) => current.map((chat) => (chat.id === id ? updater(chat) : chat)));
@@ -866,6 +1292,21 @@ export default function ProductWorkspace() {
       setView("pipeline");
       setConnected(true);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Backend unavailable"); } finally { setBusy(false); }
+  }
+
+  async function refreshDashboard(id: string, manual = false) {
+    if (manual) setDashboardRefreshing(true);
+    try {
+      const response = await fetch(`${API}/api/runs/${id}`);
+      if (!response.ok) return;
+      const next = await response.json() as Run;
+      setRuns((current) => current.map((item) => (item.id === next.id ? next : item)));
+      if (run?.id === next.id) setRun(next);
+      setDashboardRefreshedAt(Date.now());
+      setConnected(true);
+    } catch { /* keep the last good snapshot; the live badge will show the stale time */ } finally {
+      if (manual) setDashboardRefreshing(false);
+    }
   }
 
   async function approveRun(target: Run) {
@@ -970,71 +1411,408 @@ export default function ProductWorkspace() {
   const featureStatus = (name: string) => runs.find((item) => normalize(item.input?.name) === normalize(name));
   const rank = run ? Math.max(0, stageOrder.indexOf(run.stage)) : 0;
 
-  return <main className="fl-app">
-    <aside className="fl-sidebar">
-      <div className="fl-brand"><BrandMark /><strong>FeatureLens</strong></div>
-      <nav aria-label="Primary navigation">
-        <button className={view === "ask" ? "active" : ""} onClick={() => setView("ask")}><i>◌</i><span>Ask FeatureLens</span></button>
-        <button className={view === "decisions" ? "active" : ""} onClick={() => setView("decisions")}><i>□</i><span>Decision inbox</span>{pendingRuns.length > 0 && <b>{pendingRuns.length}</b>}</button>
-        <button className={view === "releases" ? "active" : ""} onClick={() => setView("releases")}><i>▦</i><span>Feature releases</span></button>
+  const navItems: { id: View; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { id: "ask", label: "Ask FeatureLens", icon: <MessageCircle className="size-4" /> },
+    { id: "decisions", label: "Decision inbox", icon: <Inbox className="size-4" />, badge: pendingRuns.length },
+    { id: "dashboards", label: "Realtime dashboards", icon: <LayoutGrid className="size-4" />, badge: dashboardRuns.length },
+    { id: "releases", label: "Feature releases", icon: <Rows3 className="size-4" /> },
+  ];
+  const systemItems: { id: View; label: string; icon: React.ReactNode }[] = [
+    { id: "pipeline", label: "Pipeline activity", icon: <Activity className="size-4" /> },
+    { id: "context", label: "Context & schemas", icon: <CircleDot className="size-4" /> },
+    { id: "trace", label: "Trace explorer", icon: <Search className="size-4" /> },
+  ];
+  const NavButton = ({ id, label, icon, badge }: { id: View; label: string; icon: React.ReactNode; badge?: number }) => (
+    <button
+      onClick={() => setView(id)}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+        view === id ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      )}
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="flex-1 text-left">{label}</span>
+      {badge ? <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1.5">{badge}</Badge> : null}
+    </button>
+  );
+
+  return <main className="grid min-h-screen grid-cols-[240px_minmax(0,1fr)] bg-background text-foreground">
+    <aside className="sticky top-0 flex h-screen flex-col gap-1 border-r bg-sidebar p-3">
+      <div className="flex items-center gap-2.5 px-1.5 py-2">
+        <BrandMark />
+        <strong className="text-base font-semibold tracking-tight">FeatureLens</strong>
+      </div>
+      <nav aria-label="Primary navigation" className="flex flex-col gap-0.5">
+        {navItems.map((item) => <NavButton key={item.id} {...item} />)}
       </nav>
-      <button className="fl-add-feature" onClick={() => setIntakeOpen(true)}><i>＋</i><span>Add feature</span></button>
-      <div className="fl-sidebar-divider" />
-      <p className="fl-sidebar-label">System</p>
-      <nav aria-label="System navigation">
-        <button className={view === "pipeline" ? "active" : ""} onClick={() => setView("pipeline")}><i>⌁</i><span>Pipeline activity</span></button>
-        <button className={view === "context" ? "active" : ""} onClick={() => setView("context")}><i>◎</i><span>Context &amp; schemas</span></button>
-        <button className={view === "trace" ? "active" : ""} onClick={() => setView("trace")}><i>⌕</i><span>Trace explorer</span></button>
+      <Button variant="outline" size="sm" className="mt-1 justify-start" onClick={() => setIntakeOpen(true)}><Plus className="size-4" /> Add feature</Button>
+      <Separator className="my-2" />
+      <p className="px-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">System</p>
+      <nav aria-label="System navigation" className="flex flex-col gap-0.5">
+        {systemItems.map((item) => <NavButton key={item.id} {...item} />)}
       </nav>
-      <div className="fl-sidebar-foot"><button onClick={() => setResetOpen(true)} disabled={busy}><i>↺</i><span>Reset baseline</span></button><div className="fl-user"><span>AM</span><div><strong>Ajay</strong><small>Product Manager</small></div></div></div>
+      <div className="mt-auto flex flex-col gap-2">
+        <Button variant="ghost" size="sm" className="justify-start text-muted-foreground" onClick={() => setResetOpen(true)} disabled={busy}><RotateCcw className="size-4" /> Reset baseline</Button>
+        <Separator />
+        <div className="flex items-center gap-2.5 px-1 py-1">
+          <Avatar className="size-8"><AvatarFallback>AM</AvatarFallback></Avatar>
+          <div className="min-w-0"><strong className="block text-sm font-medium">Ajay</strong><small className="text-xs text-muted-foreground">Product Manager</small></div>
+        </div>
+      </div>
     </aside>
 
-    <section className="fl-shell">
-      <header className="fl-topbar"><button className="fl-product-switch"><i>▥</i> Atlys Product <span>⌄</span></button><div><button className="fl-context-pill" onClick={() => setView("context")}>▱ Context v{contextVersion}</button><button className="fl-power-button" onClick={openPowerChat}>◉ Open Power Chat ↗</button><span className="fl-avatar">AM</span></div></header>
-      {error && <div className="fl-error"><span>!</span><p>{error}</p><button onClick={() => setError("")}>×</button></div>}
+    <section className="flex min-h-screen flex-col">
+      <div role="status" aria-label="Context snapshot" className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b bg-muted/40 px-6 py-2 text-xs text-muted-foreground">
+        <b className="font-normal"><em className="not-italic">context</em> <strong className="font-semibold text-foreground">v{contextVersion}</strong></b>
+        <b className="font-normal"><em className="not-italic">nodes</em> <strong className="font-semibold text-foreground">{latestContext?.nodes?.length ?? 0}</strong></b>
+        <b className="font-normal"><em className="not-italic">relationships</em> <strong className="font-semibold text-foreground">{latestContext?.edges?.length ?? 0}</strong></b>
+        <b className="font-normal"><em className="not-italic">tables</em> <strong className="font-semibold text-foreground">{sourceTables.length}</strong></b>
+        <b className={cn("font-normal", (latestContext?.conflicts?.length ?? 0) > 0 && "text-amber-600 dark:text-amber-400")}><em className="not-italic">{(latestContext?.conflicts?.length ?? 0) > 0 ? "⚠ contradictions" : "contradictions"}</em> <strong className="font-semibold">{latestContext?.conflicts?.length ?? 0}</strong></b>
+        <b className="ml-auto flex items-center gap-1.5 font-normal"><span className={cn("size-1.5 rounded-full", connected ? "bg-emerald-500" : "bg-muted-foreground")} />{connected ? "live" : "offline"}</b>
+      </div>
+      <header className="flex items-center justify-between gap-3 border-b px-6 py-3">
+        <Button variant="ghost" size="sm" className="gap-2"><Boxes className="size-4" /> Atlys Product <ChevronDown className="size-3.5 text-muted-foreground" /></Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setView("context")}>Context v{contextVersion}</Button>
+          <Button size="sm" onClick={openPowerChat}><CircleDot className="size-3.5" /> Open Power Chat <ExternalLink className="size-3.5" /></Button>
+          <Avatar className="size-8"><AvatarFallback>AM</AvatarFallback></Avatar>
+        </div>
+      </header>
+      {error && (
+        <div className="flex items-center gap-3 border-b border-destructive/30 bg-destructive/10 px-6 py-2.5 text-sm text-destructive">
+          <AlertCircle className="size-4 shrink-0" />
+          <p className="flex-1">{error}</p>
+          <button onClick={() => setError("")} className="rounded p-1 hover:bg-destructive/10"><X className="size-4" /></button>
+        </div>
+      )}
 
-      {view === "ask" && <section className="fl-chat-page">
-        <aside className="fl-chat-history" aria-label="Saved chats">
-          <button className="fl-new-chat" onClick={() => startNewChat()}><i>＋</i><span>New chat</span></button>
-          <p className="fl-chat-history-label">Chats</p>
-          <div className="fl-chat-list">
-            {chats.map((chat) => <div key={chat.id} className={`fl-chat-item ${chat.id === activeChat?.id ? "active" : ""}`}>
-              {renamingChatId === chat.id
-                ? <input autoFocus value={renameDraft} onChange={(event) => setRenameDraft(event.target.value)} onBlur={() => commitRename(chat.id)} onKeyDown={(event) => { if (event.key === "Enter") commitRename(chat.id); if (event.key === "Escape") setRenamingChatId(null); }} aria-label="Rename chat" />
-                : <button className="fl-chat-open" onClick={() => selectChat(chat.id)} onDoubleClick={() => beginRename(chat)} title={`${chat.title} — double-click to rename`}><strong>{chat.title}</strong><small>{chat.id === busyChatId ? "Thinking…" : chat.turns.length === 0 ? "No messages yet" : `${chat.turns.length} message${chat.turns.length === 1 ? "" : "s"} · ${formatTime(new Date(chat.updatedAt).toISOString())}`}</small></button>}
-              <button className="fl-chat-delete" aria-label={`Delete chat ${chat.title}`} onClick={() => deleteChat(chat.id)}>×</button>
-            </div>)}
-          </div>
+      {view === "ask" && <section className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col gap-2 border-r p-3" aria-label="Saved chats">
+          <Button variant="outline" size="sm" className="justify-start" onClick={() => startNewChat()}><Plus className="size-4" /> New chat</Button>
+          <p className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Chats</p>
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-1 pr-2">
+              {chats.map((chat) => <div key={chat.id} className={cn("group flex items-center gap-1 rounded-md pr-1 transition-colors", chat.id === activeChat?.id ? "bg-accent" : "hover:bg-accent/50")}>
+                {renamingChatId === chat.id
+                  ? <Input autoFocus value={renameDraft} className="h-8" onChange={(event) => setRenameDraft(event.target.value)} onBlur={() => commitRename(chat.id)} onKeyDown={(event) => { if (event.key === "Enter") commitRename(chat.id); if (event.key === "Escape") setRenamingChatId(null); }} aria-label="Rename chat" />
+                  : <button className="min-w-0 flex-1 px-2 py-1.5 text-left" onClick={() => selectChat(chat.id)} onDoubleClick={() => beginRename(chat)} title={`${chat.title} — double-click to rename`}><strong className="block truncate text-sm font-medium">{chat.title}</strong><small className="block truncate text-xs text-muted-foreground">{chat.id === busyChatId ? "Thinking…" : chat.turns.length === 0 ? "No messages yet" : `${chat.turns.length} message${chat.turns.length === 1 ? "" : "s"} · ${formatTime(new Date(chat.updatedAt).toISOString())}`}</small></button>}
+                <button className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100" aria-label={`Delete chat ${chat.title}`} onClick={() => deleteChat(chat.id)}><X className="size-3.5" /></button>
+              </div>)}
+            </div>
+          </ScrollArea>
         </aside>
-        <div className="fl-chat-main">
-          <div className={`fl-conversation ${conversation.length === 0 ? "empty" : ""}`} aria-live="polite">
-            {conversation.length === 0 ? <div className="fl-welcome"><span className="fl-welcome-mark"><BrandMark /></span><h2>How can I help?</h2><p>Ask across every published feature. FeatureLens resolves the latest business context, runs governed ClickHouse queries, and shows the evidence behind every answer.</p><div>{starterPrompts.map((prompt) => <button key={prompt} onClick={() => void ask(prompt)} disabled={!publishedRuns.length || chatBusy}><i>◌</i>{prompt}<span>→</span></button>)}</div></div> : conversation.map((turn) => turn.role === "user" ? <div className="fl-user-message" key={turn.id}><span>You</span><p>{turn.content}</p><i>AM</i></div> : turn.response ? <AnswerCard key={turn.id} response={turn.response} onFollowUp={(prompt) => void ask(prompt)} onTrace={() => setView("trace")} /> : null)}
-            {activeChatBusy && <div className="fl-thinking"><BrandMark compact /><i /><i /><i /><span>Resolving context and querying ClickHouse…</span></div>}
-            <div ref={endRef} />
-          </div>
-          <form className="fl-composer" onSubmit={(event) => { event.preventDefault(); void ask(); }}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void ask(); } }} placeholder="Ask about a feature, segment, trend, or opportunity…" rows={2} aria-label="Ask FeatureLens" /><div><span><i className={connected ? "live" : ""} /> Governed data</span><button type="submit" aria-label="Send question" disabled={chatBusy || !question.trim() || !publishedRuns.length}>↑</button></div></form>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" aria-live="polite">
+              {conversation.length === 0 ? (
+                <div className="flex flex-col items-center gap-4 py-16 text-center">
+                  <BrandMark />
+                  <div><h2 className="text-2xl font-semibold">How can I help?</h2><p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">Ask across every published feature. FeatureLens resolves the latest business context, runs governed ClickHouse queries, and shows the evidence behind every answer.</p></div>
+                  <div className="mt-2 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
+                    {starterPrompts.map((prompt) => (
+                      <button key={prompt} onClick={() => void ask(prompt)} disabled={!publishedRuns.length || chatBusy} className="group flex items-center gap-2 rounded-lg border p-3 text-left text-sm transition-colors hover:bg-accent disabled:opacity-50">
+                        <span className="text-muted-foreground">›</span>
+                        <em className="flex-1 not-italic">{prompt}</em>
+                        <span className="text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">run ↵</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : conversation.map((turn) => turn.role === "user"
+                ? <div className="flex items-start justify-end gap-2.5" key={turn.id}>
+                    <p className="max-w-xl rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2 text-sm text-primary-foreground">{turn.content}</p>
+                    <Avatar className="size-7"><AvatarFallback className="text-xs">AM</AvatarFallback></Avatar>
+                  </div>
+                : turn.response ? <AnswerCard key={turn.id} response={turn.response} onFollowUp={(prompt) => void ask(prompt)} onTrace={() => setView("trace")} /> : null)}
+              {activeChatBusy && <div className="flex items-center gap-2.5 text-sm text-muted-foreground"><BrandMark compact /><span className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 animate-bounce rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 0.15}s` }} />)}</span><span>Resolving context and querying ClickHouse…</span></div>}
+              <div ref={endRef} />
+            </div>
+          </ScrollArea>
+          <form className="border-t p-4" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
+            <div className="mx-auto max-w-4xl rounded-xl border bg-card p-2 shadow-sm focus-within:ring-2 focus-within:ring-ring/50">
+              <Textarea value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void ask(); } }} placeholder="Ask about a feature, segment, trend, or opportunity…" rows={2} aria-label="Ask FeatureLens" className="min-h-0 border-0 bg-transparent p-1.5 shadow-none focus-visible:ring-0" />
+              <div className="flex items-center justify-between px-1.5 pt-1">
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className={cn("size-1.5 rounded-full", connected ? "bg-emerald-500" : "bg-muted-foreground")} /> Governed data</span>
+                <Button type="submit" size="icon" className="size-8" aria-label="Send question" disabled={chatBusy || !question.trim() || !publishedRuns.length}><ArrowUp className="size-4" /></Button>
+              </div>
+            </div>
+          </form>
         </div>
       </section>}
 
-      {view === "decisions" && <section className="fl-page"><div className="fl-page-title"><div><h1>Decision inbox</h1><p>Approvals and evidence-backed recommendations that need your attention.</p></div></div>
-        {pendingRuns.length > 0 && <div className="fl-section-block"><div className="fl-block-title"><span>Needs approval</span><b>{pendingRuns.length}</b></div><div className="fl-approval-list">{pendingRuns.map((item) => <article key={item.id}><div><span>Schema approval</span><h3>{item.input?.name}</h3><p>The Instrumentation Agent has verified the proposed ClickHouse contract. Context publication is waiting for your decision.</p></div><dl><div><dt>Table</dt><dd>{item.schema?.table ?? "Preparing"}</dd></div><div><dt>Rows</dt><dd>{item.profile?.rows?.toLocaleString() ?? "—"}</dd></div><div><dt>Checks</dt><dd>{item.validation?.checks.filter((check) => check.passed).length ?? 0}/{item.validation?.checks.length ?? 0}</dd></div></dl><button onClick={() => void approveRun(item)} disabled={busy}>Review &amp; approve →</button></article>)}</div></div>}
-        <div className="fl-section-block"><div className="fl-block-title"><span>Latest recommendations</span><b>{publishedRuns.length}</b></div><div className="fl-decision-list">{publishedRuns.flatMap((item) => (item.analytics_bundle?.insights ?? []).slice(0, 1).map((insight) => <article key={`${item.id}-${insight.rank}`}><span>{item.input?.name}</span><h3>{insight.headline}</h3><p>{insight.summary}</p><div><strong>Next action</strong>{insight.recommended_action}</div><footer><span>{Math.round(insight.confidence * 100)}% confidence</span><button onClick={() => { setRun(item); setSelection(featureSelectionForRun(item)); setView("releases"); }}>Open feature →</button></footer></article>))}{publishedRuns.length === 0 && <div className="fl-empty-state"><span>✦</span><strong>No recommendations yet</strong><p>Publish the first feature context to create a decision-ready analytics bundle.</p></div>}</div></div>
-      </section>}
+      {view === "decisions" && <PageScroll>
+        <PageTitle title="Decision inbox" subtitle="Approvals and evidence-backed recommendations that need your attention." />
+        {pendingRuns.length > 0 && <section className="flex flex-col gap-3">
+          <SectionTitle label="Needs approval" count={pendingRuns.length} />
+          <div className="grid gap-3 md:grid-cols-2">{pendingRuns.map((item) => (
+            <Card key={item.id}><CardContent className="flex flex-col gap-3">
+              <div><Badge variant="outline">Schema approval</Badge><h3 className="mt-2 text-base font-semibold">{item.input?.name}</h3><p className="mt-1 text-sm text-muted-foreground">The Instrumentation Agent has verified the proposed ClickHouse contract. Context publication is waiting for your decision.</p></div>
+              <dl className="grid grid-cols-3 gap-2 rounded-lg border bg-muted/40 p-3 text-center">
+                <div><dt className="text-xs text-muted-foreground">Table</dt><dd className="text-sm font-medium">{item.schema?.table ?? "Preparing"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Rows</dt><dd className="text-sm font-medium tabular-nums">{item.profile?.rows?.toLocaleString() ?? "—"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Checks</dt><dd className="text-sm font-medium tabular-nums">{item.validation?.checks.filter((check) => check.passed).length ?? 0}/{item.validation?.checks.length ?? 0}</dd></div>
+              </dl>
+              <Button onClick={() => void approveRun(item)} disabled={busy}>Review &amp; approve →</Button>
+            </CardContent></Card>
+          ))}</div>
+        </section>}
+        <section className="flex flex-col gap-3">
+          <SectionTitle label="Latest recommendations" count={publishedRuns.length} />
+          <div className="grid gap-3 md:grid-cols-2">
+            {publishedRuns.flatMap((item) => (item.analytics_bundle?.insights ?? []).slice(0, 1).map((insight) => (
+              <Card key={`${item.id}-${insight.rank}`}><CardContent className="flex flex-col gap-2">
+                <Badge variant="secondary" className="w-fit">{item.input?.name}</Badge>
+                <h3 className="text-base font-semibold">{insight.headline}</h3>
+                <p className="text-sm text-muted-foreground">{insight.summary}</p>
+                <div className="rounded-lg border bg-muted/40 p-3 text-sm"><strong className="mr-1.5 font-medium">Next action</strong><span className="text-muted-foreground">{insight.recommended_action}</span></div>
+                <div className="flex items-center justify-between pt-1"><span className="text-xs text-muted-foreground">{Math.round(insight.confidence * 100)}% confidence</span><Button variant="ghost" size="sm" onClick={() => { setRun(item); setSelection(featureSelectionForRun(item)); setView("releases"); }}>Open feature →</Button></div>
+              </CardContent></Card>
+            )))}
+            {publishedRuns.length === 0 && <div className="md:col-span-2"><EmptyState icon={<Sparkles className="size-6" />} title="No recommendations yet" body="Publish the first feature context to create a decision-ready analytics bundle." /></div>}
+          </div>
+        </section>
+      </PageScroll>}
 
-      {view === "releases" && <section className="fl-page"><div className="fl-page-title"><div><h1>Feature releases</h1><p>Explore the product intelligence available for each release.</p></div><button className="fl-primary" onClick={() => setIntakeOpen(true)}>＋ Add feature</button></div><div className="fl-release-layout"><aside>{featurePackages.map((feature) => { const item = featureStatus(feature.name); return <button key={feature.id} className={selection === feature.id ? "active" : ""} onClick={() => chooseFeature(feature.id)}><span>{feature.order}</span><div><strong>{feature.name}</strong><small>{item?.stage === "completed" ? "Published" : item ? item.stage.replaceAll("_", " ") : "Not analyzed"}</small></div><i className={item?.stage === "completed" ? "published" : ""} /></button>; })}{customRuns.map((item, index) => { const id = customFeatureID(item); return <button key={item.id} className={`${selection === id ? "active " : ""}${index === 0 ? "unseen" : ""}`} onClick={() => chooseFeature(id)}><span>{String(featurePackages.length + index + 1).padStart(2, "0")}</span><div><strong>{item.input?.name ?? "Custom release"}</strong><small>{item.stage === "completed" ? "Published" : item.stage.replaceAll("_", " ")}</small></div><i className={item.stage === "completed" ? "published" : ""} /></button>; })}<button className={`${selection === "unseen" ? "active " : ""}${customRuns.length === 0 ? "unseen" : ""}`} onClick={() => chooseFeature("unseen")}><span>{String(featurePackages.length + customRuns.length + 1).padStart(2, "0")}</span><div><strong>Add another release</strong><small>Upload spec and events</small></div><i /></button></aside><article className="fl-release-detail"><div className="fl-release-head"><div><span>{selectedReleaseOrder} · {selectedRun?.stage === "completed" ? "Published" : selectedRun ? selectedRun.stage.replaceAll("_", " ") : "Ready to analyze"}</span><h2>{selectedFeatureName}</h2><p>{selectedPackage?.description ?? "A new product release that will evolve instrumentation, context, and analytics without feature-specific code."}</p></div><button className="fl-primary" onClick={() => selectedRun?.stage === "completed" ? askAboutSelectedFeature() : void launchFeature()} disabled={busy}>{selectedRun?.stage === "completed" ? "Ask about this release" : selectedRun ? "View pipeline" : selection === "unseen" ? "Add release" : "Analyze release"} →</button></div><div className="fl-release-facts"><div><span>Event rows</span><strong>{selectedRun?.profile?.rows?.toLocaleString() ?? selectedPackage?.rows ?? "Unknown"}</strong></div><div><span>Decision focus</span><strong>{selectedPackage?.outcome ?? "Adaptive measurement"}</strong></div><div><span>Context</span><strong>{selectedRun?.context ? `v${selectedRun.context.version}` : "Not published"}</strong></div><div><span>Schema</span><strong>{selectedRun?.schema ? `v${selectedRun.schema.version}` : `Proposed v${selectedPackage?.schemaVersion ?? schemaVersion}`}</strong></div></div>{selectedRun?.analytics_bundle ? <div className="fl-feature-insights"><div className="fl-kpis">{releaseDecisionKPIs(selectedRun.analytics_bundle).map((kpi) => <div key={kpi.key}><span>{kpi.label}</span><strong>{kpi.formatted_value}</strong><small>{kpi.evidence_label}</small></div>)}</div>{selectedRun.analytics_bundle.charts.slice(0, 2).map((chart) => <Chart key={chart.key} chart={chart} />)}</div> : <div className="fl-empty-state"><span>✦</span><strong>Feature intelligence is not published yet</strong><p>Start the release to profile events, review the schema, publish its context, and generate actionable insights.</p></div>}</article></div></section>}
+      {view === "dashboards" && <PageScroll>
+        <PageTitle title="Realtime dashboards" subtitle="Every published feature gets a live dashboard, generated from what the Context Agent learned — no per-feature setup." action={<Badge variant="outline" className="gap-1.5"><span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />Auto-refreshing every 20s</Badge>} />
+        {dashboardRuns.length === 0
+          ? <EmptyState icon={<LayoutGrid className="size-6" />} title="No feature dashboards yet" body="Publish a feature's context and the Analytics Agent will assemble its realtime dashboard here automatically." />
+          : <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+              <aside className="flex flex-col gap-1.5">{dashboardRuns.map((item, index) => (
+                <button key={item.id} onClick={() => { setDashboardRunId(item.id); setDashboardRefreshedAt(Date.now()); }} className={cn("flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors", dashboardRun?.id === item.id ? "border-primary bg-accent" : "hover:bg-accent")}>
+                  <span className="font-mono text-xs text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
+                  <div className="min-w-0 flex-1"><strong className="block truncate text-sm font-medium">{item.input?.name}</strong><small className="text-xs text-muted-foreground capitalize">{item.analytics_bundle?.status === "ready" ? "Live" : item.analytics_bundle?.status ?? "published"}</small></div>
+                  <span className="size-2 rounded-full bg-emerald-500" />
+                </button>
+              ))}</aside>
+              <Card><CardContent>{dashboardRun ? <FeatureDashboard run={dashboardRun} lastRefreshed={dashboardRefreshedAt} refreshing={dashboardRefreshing} onManualRefresh={() => dashboardRun && void refreshDashboard(dashboardRun.id, true)} /> : null}</CardContent></Card>
+            </div>}
+      </PageScroll>}
 
-      {view === "pipeline" && <section className="fl-page"><div className="fl-page-title"><div><h1>Pipeline activity</h1><p>The governed agent workflow behind the selected feature release.</p></div>{run && <span className={`fl-run-status ${run.stage}`}>{run.stage.replaceAll("_", " ")}</span>}</div>{!run ? <div className="fl-empty-state"><span>⌁</span><strong>No feature run selected</strong><p>Choose a release to inspect its instrumentation, context, and analytics activity.</p></div> : <><div className="fl-agent-timeline"><article className={rank >= 1 ? "done" : ""}><i>I</i><div><span>Instrumentation Agent</span><strong>Schema and event contract</strong><p>{run.schema ? `${run.schema.database}.${run.schema.table}` : "Waiting to profile the release"}</p></div><b>{rank >= 4 ? "✓" : rank >= 1 ? "Working" : "Queued"}</b></article><em>→</em><article className={rank >= 5 ? "done" : ""}><i>C</i><div><span>Context Agent</span><strong>Business meaning and ontology</strong><p>{run.context?.summary ?? "Publishes only after schema approval"}</p></div><b>{rank >= 5 ? "✓" : "Queued"}</b></article><em>→</em><article className={rank >= 6 ? "done" : ""}><i>A</i><div><span>Analytics Agent</span><strong>Evidence and recommendations</strong><p>{run.insight?.headline ?? "Queries the latest published context"}</p></div><b>{rank >= 6 ? "✓" : "Queued"}</b></article></div>{run.stage === "awaiting_approval" && <div className="fl-approval-banner"><div><span>Decision required</span><h3>Approve the ClickHouse contract for {run.input?.name}</h3><p>Nothing is executed or published until this schema passes your review.</p></div><button onClick={() => void approveRun(run)} disabled={busy}>Approve &amp; continue →</button></div>}<div className="fl-pipeline-grid"><article><div className="fl-block-title"><span>Release contract</span></div><dl><div><dt>Table</dt><dd>{run.schema?.table ?? "Preparing"}</dd></div><div><dt>Rows profiled</dt><dd>{run.profile?.rows?.toLocaleString() ?? "—"}</dd></div><div><dt>Event types</dt><dd>{Object.keys(run.profile?.event_counts ?? {}).length}</dd></div><div><dt>Validation</dt><dd>{run.validation?.passed ? "Passed" : "Pending"}</dd></div><div><dt>Context</dt><dd>{run.context ? `v${run.context.version}` : "Pending"}</dd></div><div><dt>Trace</dt><dd>{compactID(run.trace_id)}</dd></div></dl>{run.schema?.ddl && <details><summary>Inspect proposed DDL</summary><pre>{run.schema.ddl}</pre></details>}</article><article><div className="fl-block-title"><span>Activity</span><b>{events.length}</b></div><div className="fl-activity">{events.length ? [...events].reverse().map((event) => <div key={`${event.stage}-${event.timestamp}`}><time>{formatTime(event.timestamp)}</time><i /><span><strong>{event.stage.replaceAll("_", " ")}</strong><p>{event.message}</p></span></div>) : <p>No new activity. The selected run is {run.stage.replaceAll("_", " ")}.</p>}</div></article></div></>}
-      </section>}
+      {view === "releases" && <PageScroll>
+        <PageTitle title="Feature releases" subtitle="Explore the product intelligence available for each release." action={<Button onClick={() => setIntakeOpen(true)}><Plus className="size-4" /> Add feature</Button>} />
+        <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+          <aside className="flex flex-col gap-1.5">
+            {featurePackages.map((feature) => { const item = featureStatus(feature.name); return (
+              <button key={feature.id} onClick={() => chooseFeature(feature.id)} className={cn("flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors", selection === feature.id ? "border-primary bg-accent" : "hover:bg-accent")}>
+                <span className="font-mono text-xs text-muted-foreground">{feature.order}</span>
+                <div className="min-w-0 flex-1"><strong className="block truncate text-sm font-medium">{feature.name}</strong><small className="text-xs text-muted-foreground capitalize">{item?.stage === "completed" ? "Published" : item ? item.stage.replaceAll("_", " ") : "Not analyzed"}</small></div>
+                <span className={cn("size-2 rounded-full", item?.stage === "completed" ? "bg-emerald-500" : "bg-muted")} />
+              </button>
+            ); })}
+            {customRuns.map((item, index) => { const id = customFeatureID(item); return (
+              <button key={item.id} onClick={() => chooseFeature(id)} className={cn("flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors", selection === id ? "border-primary bg-accent" : "hover:bg-accent")}>
+                <span className="font-mono text-xs text-muted-foreground">{String(featurePackages.length + index + 1).padStart(2, "0")}</span>
+                <div className="min-w-0 flex-1"><strong className="block truncate text-sm font-medium">{item.input?.name ?? "Custom release"}</strong><small className="text-xs text-muted-foreground capitalize">{item.stage === "completed" ? "Published" : item.stage.replaceAll("_", " ")}</small></div>
+                <span className={cn("size-2 rounded-full", item.stage === "completed" ? "bg-emerald-500" : "bg-muted")} />
+              </button>
+            ); })}
+            <button onClick={() => chooseFeature("unseen")} className={cn("flex items-center gap-3 rounded-lg border border-dashed p-2.5 text-left transition-colors", selection === "unseen" ? "border-primary bg-accent" : "hover:bg-accent")}>
+              <span className="font-mono text-xs text-muted-foreground">{String(featurePackages.length + customRuns.length + 1).padStart(2, "0")}</span>
+              <div className="min-w-0 flex-1"><strong className="block truncate text-sm font-medium">Add another release</strong><small className="text-xs text-muted-foreground">Upload spec and events</small></div>
+              <span className="size-2 rounded-full bg-muted" />
+            </button>
+          </aside>
+          <Card><CardContent className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><span className="text-xs text-muted-foreground capitalize">{selectedReleaseOrder} · {selectedRun?.stage === "completed" ? "Published" : selectedRun ? selectedRun.stage.replaceAll("_", " ") : "Ready to analyze"}</span><h2 className="text-lg font-semibold">{selectedFeatureName}</h2><p className="mt-1 max-w-2xl text-sm text-muted-foreground">{selectedPackage?.description ?? "A new product release that will evolve instrumentation, context, and analytics without feature-specific code."}</p></div>
+              <Button onClick={() => selectedRun?.stage === "completed" ? askAboutSelectedFeature() : void launchFeature()} disabled={busy}>{selectedRun?.stage === "completed" ? "Ask about this release" : selectedRun ? "View pipeline" : selection === "unseen" ? "Add release" : "Analyze release"} →</Button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Stat label="Event rows" value={selectedRun?.profile?.rows?.toLocaleString() ?? selectedPackage?.rows ?? "Unknown"} />
+              <Stat label="Decision focus" value={<span className="text-sm">{selectedPackage?.outcome ?? "Adaptive measurement"}</span>} />
+              <Stat label="Context" value={<span className="text-sm">{selectedRun?.context ? `v${selectedRun.context.version}` : "Not published"}</span>} />
+              <Stat label="Schema" value={<span className="text-sm">{selectedRun?.schema ? `v${selectedRun.schema.version}` : `Proposed v${selectedPackage?.schemaVersion ?? schemaVersion}`}</span>} />
+            </div>
+            {selectedRun?.analytics_bundle ? (
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{releaseDecisionKPIs(selectedRun.analytics_bundle).map((kpi) => <Stat key={kpi.key} label={kpi.label} value={kpi.formatted_value} hint={kpi.evidence_label} />)}</div>
+                <div className="grid gap-3 lg:grid-cols-2">{selectedRun.analytics_bundle.charts.slice(0, 2).map((chart) => <Chart key={chart.key} chart={chart} />)}</div>
+              </div>
+            ) : <EmptyState icon={<Sparkles className="size-6" />} title="Feature intelligence is not published yet" body="Start the release to profile events, review the schema, publish its context, and generate actionable insights." />}
+          </CardContent></Card>
+        </div>
+      </PageScroll>}
 
-      {view === "context" && <section className="fl-page"><div className="fl-page-title"><div><h1>Context &amp; schemas</h1><p>The living business model that keeps every analytics answer aligned with the latest feature landscape.</p></div><span className="fl-context-version">Context v{contextVersion}</span></div><div className="fl-context-hero"><div><span>Latest published context</span><h2>{latestContext?.summary ?? "Baseline context is ready"}</h2><p>Features, entities, metrics, dimensions, relationships, and known issues are versioned together. Analytics can only query tables registered in this contract.</p></div><div><div><span>Nodes</span><strong>{latestContext?.nodes?.length ?? 0}</strong></div><div><span>Relationships</span><strong>{latestContext?.edges?.length ?? 0}</strong></div><div><span>Source tables</span><strong>{sourceTables.length}</strong></div><div><span>Agent schemas</span><strong>{agentTables.length}</strong></div></div></div>{(latestContext?.nodes?.length ?? 0) > 0 && <ContextGraph nodes={latestContext?.nodes ?? []} edges={latestContext?.edges ?? []} />}<div className="fl-context-grid"><article><div className="fl-block-title"><span>Business ontology</span><b>{Object.keys(nodeCounts).length} types</b></div><div className="fl-ontology">{Object.entries(nodeCounts).map(([type, count]) => <div key={type}><i>{type.slice(0, 1).toUpperCase()}</i><span><strong>{type.replaceAll("_", " ")}</strong><small>Published semantic objects</small></span><b>{count}</b></div>)}</div></article><article><div className="fl-block-title"><span>ClickHouse source catalog</span><b>{sourceTables.filter((table) => table.context_registered).length}/{sourceTables.length} registered</b></div><div className="fl-table-list">{sourceTables.map((table) => <div key={`${table.database}.${table.name}`}><i className={table.context_registered ? "ready" : ""}>{table.context_registered ? "✓" : "!"}</i><span><strong>{table.name}</strong><small>{table.database} · {table.engine}</small></span><b>{table.rows.toLocaleString()}</b></div>)}</div></article></div>{(latestContext?.conflicts?.length ?? 0) > 0 && <details className="fl-context-conflicts"><summary><span>Context health</span><strong>{latestContext?.conflicts?.length ?? 0} issue{latestContext?.conflicts?.length === 1 ? "" : "s"} require review</strong><i>View details⌄</i></summary><div>{latestContext?.conflicts?.map((conflict) => <p key={conflict.key}><span>{conflict.severity}</span>{conflict.description}</p>)}</div></details>}</section>}
+      {view === "pipeline" && <PageScroll>
+        <PageTitle title="Pipeline activity" subtitle="The governed agent workflow behind the selected feature release." action={run ? <Badge variant="outline" className="capitalize">{run.stage.replaceAll("_", " ")}</Badge> : undefined} />
+        {!run ? <EmptyState icon={<Activity className="size-6" />} title="No feature run selected" body="Choose a release to inspect its instrumentation, context, and analytics activity." /> : <>
+          <div className="grid items-stretch gap-3 md:grid-cols-3">
+            {([
+              { key: "I", agent: "Instrumentation Agent", role: "Schema and event contract", detail: run.schema ? `${run.schema.database}.${run.schema.table}` : "Waiting to profile the release", done: rank >= 4, active: rank >= 1, status: rank >= 4 ? "✓" : rank >= 1 ? "Working" : "Queued" },
+              { key: "C", agent: "Context Agent", role: "Business meaning and ontology", detail: run.context?.summary ?? "Publishes only after schema approval", done: rank >= 5, active: rank >= 5, status: rank >= 5 ? "✓" : "Queued" },
+              { key: "A", agent: "Analytics Agent", role: "Evidence and recommendations", detail: run.insight?.headline ?? "Queries the latest published context", done: rank >= 6, active: rank >= 6, status: rank >= 6 ? "✓" : "Queued" },
+            ]).map((stage) => (
+              <Card key={stage.key} className={cn(stage.done && "border-primary/40")}><CardContent className="flex items-start gap-3">
+                <span className={cn("grid size-8 shrink-0 place-items-center rounded-md font-mono text-sm font-semibold", stage.done ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{stage.key}</span>
+                <div className="min-w-0 flex-1"><span className="text-xs text-muted-foreground">{stage.agent}</span><strong className="block text-sm font-medium">{stage.role}</strong><p className="mt-0.5 truncate text-xs text-muted-foreground">{stage.detail}</p></div>
+                <Badge variant={stage.done ? "secondary" : "outline"} className="shrink-0">{stage.status}</Badge>
+              </CardContent></Card>
+            ))}
+          </div>
+          {run.stage === "awaiting_approval" && (
+            <Card className="border-amber-500/40 bg-amber-500/5"><CardContent className="flex flex-wrap items-center justify-between gap-3">
+              <div><Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-400">Decision required</Badge><h3 className="mt-2 text-base font-semibold">Approve the ClickHouse contract for {run.input?.name}</h3><p className="mt-1 text-sm text-muted-foreground">Nothing is executed or published until this schema passes your review.</p></div>
+              <Button onClick={() => void approveRun(run)} disabled={busy}>Approve &amp; continue →</Button>
+            </CardContent></Card>
+          )}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card><CardContent className="flex flex-col gap-3">
+              <SectionTitle label="Release contract" />
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+                {[["Table", run.schema?.table ?? "Preparing"], ["Rows profiled", run.profile?.rows?.toLocaleString() ?? "—"], ["Event types", Object.keys(run.profile?.event_counts ?? {}).length], ["Validation", run.validation?.passed ? "Passed" : "Pending"], ["Context", run.context ? `v${run.context.version}` : "Pending"], ["Trace", compactID(run.trace_id)]].map(([dt, dd]) => (
+                  <div key={String(dt)} className="flex flex-col"><dt className="text-xs text-muted-foreground">{dt}</dt><dd className="font-medium">{dd}</dd></div>
+                ))}
+              </dl>
+              {run.schema?.ddl && <details className="text-sm"><summary className="cursor-pointer text-muted-foreground hover:text-foreground">Inspect proposed DDL</summary><pre className="mt-2 max-h-72 overflow-auto rounded-md bg-muted p-3 font-mono text-xs">{run.schema.ddl}</pre></details>}
+            </CardContent></Card>
+            <Card><CardContent className="flex flex-col gap-3">
+              <SectionTitle label="Activity" count={events.length} />
+              <div className="flex flex-col gap-3">{events.length ? [...events].reverse().map((event) => (
+                <div key={`${event.stage}-${event.timestamp}`} className="flex gap-3 text-sm">
+                  <time className="shrink-0 pt-0.5 font-mono text-xs text-muted-foreground">{formatTime(event.timestamp)}</time>
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+                  <span><strong className="block font-medium capitalize">{event.stage.replaceAll("_", " ")}</strong><p className="text-muted-foreground">{event.message}</p></span>
+                </div>
+              )) : <p className="text-sm text-muted-foreground capitalize">No new activity. The selected run is {run.stage.replaceAll("_", " ")}.</p>}</div>
+            </CardContent></Card>
+          </div>
+        </>}
+      </PageScroll>}
 
-      {view === "trace" && <section className="fl-page"><div className="fl-page-title"><div><h1>Trace explorer</h1><p>Follow the complete path from user question to context, SQL, evidence, and final synthesis.</p></div><span className={`fl-langfuse ${tracingRuntime?.enabled ? "live" : ""}`}><i />Langfuse {tracingRuntime?.enabled ? "connected" : "local trace"}</span></div><TraceWorkspace key={activeInsight?.trace?.trace_id ?? "empty"} insight={activeInsight} tracing={tracingRuntime} /></section>}
+      {view === "context" && <PageScroll>
+        <PageTitle title="Context & schemas" subtitle="The living business model that keeps every analytics answer aligned with the latest feature landscape." action={<Badge variant="outline">Context v{contextVersion}</Badge>} />
+        <Card><CardContent className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+          <div><span className="text-xs text-muted-foreground">Latest published context</span><h2 className="text-lg font-semibold">{latestContext?.summary ?? "Baseline context is ready"}</h2><p className="mt-1 max-w-2xl text-sm text-muted-foreground">Features, entities, metrics, dimensions, relationships, and known issues are versioned together. Analytics can only query tables registered in this contract.</p></div>
+          <div className="grid grid-cols-2 gap-2">
+            <Stat label="Nodes" value={latestContext?.nodes?.length ?? 0} />
+            <Stat label="Relationships" value={latestContext?.edges?.length ?? 0} />
+            <Stat label="Source tables" value={sourceTables.length} />
+            <Stat label="Agent schemas" value={agentTables.length} />
+          </div>
+        </CardContent></Card>
+        {(latestContext?.nodes?.length ?? 0) > 0 && <ContextGraph nodes={latestContext?.nodes ?? []} edges={latestContext?.edges ?? []} />}
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Card><CardContent className="flex flex-col gap-3">
+            <div className="flex items-center justify-between"><SectionTitle label="Business ontology" /><b className="text-xs font-normal text-muted-foreground">{Object.keys(nodeCounts).length} types</b></div>
+            <div className="flex flex-col gap-1.5">{Object.entries(nodeCounts).map(([type, count]) => (
+              <div key={type} className="flex items-center gap-3 rounded-md border p-2">
+                <i className="grid size-7 shrink-0 place-items-center rounded-md bg-muted text-xs font-semibold not-italic">{type.slice(0, 1).toUpperCase()}</i>
+                <span className="min-w-0 flex-1"><strong className="block text-sm font-medium capitalize">{type.replaceAll("_", " ")}</strong><small className="text-xs text-muted-foreground">Published semantic objects</small></span>
+                <b className="text-sm font-semibold tabular-nums">{count}</b>
+              </div>
+            ))}</div>
+          </CardContent></Card>
+          <Card><CardContent className="flex flex-col gap-3">
+            <div className="flex items-center justify-between"><SectionTitle label="ClickHouse source catalog" /><b className="text-xs font-normal text-muted-foreground">{sourceTables.filter((table) => table.context_registered).length}/{sourceTables.length} registered</b></div>
+            <div className="flex flex-col gap-1.5">{sourceTables.map((table) => (
+              <div key={`${table.database}.${table.name}`} className="flex items-center gap-3 rounded-md border p-2">
+                <i className={cn("grid size-7 shrink-0 place-items-center rounded-md text-xs font-semibold not-italic", table.context_registered ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/15 text-amber-600 dark:text-amber-400")}>{table.context_registered ? "✓" : "!"}</i>
+                <span className="min-w-0 flex-1"><strong className="block truncate text-sm font-medium">{table.name}</strong><small className="text-xs text-muted-foreground">{table.database} · {table.engine}</small></span>
+                <b className="text-sm font-medium tabular-nums">{table.rows.toLocaleString()}</b>
+              </div>
+            ))}</div>
+          </CardContent></Card>
+        </div>
+        {(latestContext?.conflicts?.length ?? 0) > 0 && (
+          <Collapsible className="rounded-xl border border-amber-500/40 bg-amber-500/5">
+            <CollapsibleTrigger className="group flex w-full items-center gap-2 px-4 py-3 text-left text-sm">
+              <span className="font-medium text-muted-foreground">Context health</span>
+              <strong className="font-semibold">{latestContext?.conflicts?.length ?? 0} issue{latestContext?.conflicts?.length === 1 ? "" : "s"} require review</strong>
+              <ChevronDown className="ml-auto size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-2 border-t border-amber-500/30 p-4">
+              {latestContext?.conflicts?.map((conflict) => <p key={conflict.key} className="flex items-start gap-2 text-sm"><Badge variant="outline" className="shrink-0 capitalize">{conflict.severity}</Badge><span className="text-muted-foreground">{conflict.description}</span></p>)}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </PageScroll>}
+
+      {view === "trace" && <PageScroll>
+        <PageTitle title="Trace explorer" subtitle="Follow the complete path from user question to context, SQL, evidence, and final synthesis." action={<Badge variant="outline" className="gap-1.5"><span className={cn("size-1.5 rounded-full", tracingRuntime?.enabled ? "bg-emerald-500" : "bg-muted-foreground")} />Langfuse {tracingRuntime?.enabled ? "connected" : "local trace"}</Badge>} />
+        <TraceWorkspace key={activeInsight?.trace?.trace_id ?? "empty"} insight={activeInsight} tracing={tracingRuntime} />
+      </PageScroll>}
     </section>
 
-    {intakeOpen && <div className="fl-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setIntakeOpen(false); }}><section className="fl-intake" role="dialog" aria-modal="true" aria-labelledby="intake-title"><header><div><span>New feature release</span><h2 id="intake-title">Create feature intelligence</h2><p>Upload the product brief and observed events. FeatureLens will propose the ClickHouse contract before anything is executed.</p></div><button onClick={() => setIntakeOpen(false)}>×</button></header><div className="fl-form-grid"><label><span>Feature name</span><input value={intakeName} onChange={(event) => { setIntakeName(event.target.value); setIntakeSlug(slugify(event.target.value)); }} /></label><label><span>Schema version</span><input type="number" min={1} value={schemaVersion} onChange={(event) => setSchemaVersion(Math.max(1, Number(event.target.value) || 1))} /></label><label className="wide"><span>Release slug</span><input value={intakeSlug} onChange={(event) => setIntakeSlug(slugify(event.target.value))} /></label></div><div className="fl-upload-grid"><label className={specFile ? "ready" : ""}><input type="file" accept=".md,.markdown,text/plain" onChange={(event) => void loadSpec(event.target.files?.[0])} /><b>{specFile ? "✓" : "MD"}</b><span><strong>{specFile?.name ?? "Feature specification"}</strong><small>{specFile ? formatBytes(specFile.size) : "Choose spec.md"}</small></span></label><label className={eventFile ? "ready" : ""}><input type="file" accept=".ndjson,.jsonl,application/json,text/plain" onChange={(event) => void loadEvents(event.target.files?.[0])} /><b>{eventFile ? "✓" : "{}"}</b><span><strong>{eventFile?.name ?? "Observed events"}</strong><small>{eventFile ? formatBytes(eventFile.size) : "Choose events.ndjson"}</small></span></label></div>{intakeError && <p className="fl-intake-error">! {intakeError}</p>}{preflight && <div className="fl-preflight"><header><span>Event package</span><b>Ready ✓</b></header><div><span><small>Rows</small><strong>{preflight.rows.toLocaleString()}</strong></span><span><small>Event types</small><strong>{preflight.eventTypes.length}</strong></span><span><small>Fields</small><strong>{preflight.fields}</strong></span></div><p>{preflight.firstEvent} <i>→</i> {preflight.lastEvent}</p></div>}<div className="fl-intake-route"><span>Instrumentation</span><i>→</i><span>Human approval</span><i>→</i><span>Context</span><i>→</i><span>Analytics</span></div><footer><button onClick={() => setIntakeOpen(false)}>Cancel</button><button className="fl-primary" onClick={() => void submitUnseen()} disabled={busy || !specFile || !eventFile || !preflight}>Submit release →</button></footer></section></div>}
+    <Dialog open={intakeOpen} onOpenChange={(open) => { if (!busy) setIntakeOpen(open); }}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <span className="text-xs text-muted-foreground">New feature release</span>
+          <DialogTitle>Create feature intelligence</DialogTitle>
+          <DialogDescription>Upload the product brief and observed events. FeatureLens will propose the ClickHouse contract before anything is executed.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5"><Label>Feature name</Label><Input value={intakeName} onChange={(event) => { setIntakeName(event.target.value); setIntakeSlug(slugify(event.target.value)); }} /></div>
+          <div className="flex flex-col gap-1.5"><Label>Schema version</Label><Input type="number" min={1} value={schemaVersion} onChange={(event) => setSchemaVersion(Math.max(1, Number(event.target.value) || 1))} /></div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2"><Label>Release slug</Label><Input value={intakeSlug} onChange={(event) => setIntakeSlug(slugify(event.target.value))} /></div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent", specFile && "border-emerald-500/40 bg-emerald-500/5")}>
+            <input type="file" accept=".md,.markdown,text/plain" className="sr-only" onChange={(event) => void loadSpec(event.target.files?.[0])} />
+            <b className={cn("grid size-9 shrink-0 place-items-center rounded-md text-xs font-semibold", specFile ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground")}>{specFile ? <Check className="size-4" /> : "MD"}</b>
+            <span className="min-w-0"><strong className="block truncate text-sm font-medium">{specFile?.name ?? "Feature specification"}</strong><small className="text-xs text-muted-foreground">{specFile ? formatBytes(specFile.size) : "Choose spec.md"}</small></span>
+          </label>
+          <label className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent", eventFile && "border-emerald-500/40 bg-emerald-500/5")}>
+            <input type="file" accept=".ndjson,.jsonl,application/json,text/plain" className="sr-only" onChange={(event) => void loadEvents(event.target.files?.[0])} />
+            <b className={cn("grid size-9 shrink-0 place-items-center rounded-md text-xs font-semibold", eventFile ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground")}>{eventFile ? <Check className="size-4" /> : <Braces className="size-4" />}</b>
+            <span className="min-w-0"><strong className="block truncate text-sm font-medium">{eventFile?.name ?? "Observed events"}</strong><small className="text-xs text-muted-foreground">{eventFile ? formatBytes(eventFile.size) : "Choose events.ndjson"}</small></span>
+          </label>
+        </div>
+        {intakeError && <p className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-2.5 text-sm text-destructive"><AlertCircle className="size-4" /> {intakeError}</p>}
+        {preflight && (
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <div className="flex items-center justify-between"><span className="text-xs font-medium text-muted-foreground">Event package</span><Badge variant="secondary">Ready ✓</Badge></div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+              <span><small className="block text-xs text-muted-foreground">Rows</small><strong className="text-sm tabular-nums">{preflight.rows.toLocaleString()}</strong></span>
+              <span><small className="block text-xs text-muted-foreground">Event types</small><strong className="text-sm tabular-nums">{preflight.eventTypes.length}</strong></span>
+              <span><small className="block text-xs text-muted-foreground">Fields</small><strong className="text-sm tabular-nums">{preflight.fields}</strong></span>
+            </div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">{preflight.firstEvent} → {preflight.lastEvent}</p>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          {["Instrumentation", "Human approval", "Context", "Analytics"].map((step, i, arr) => <span key={step} className="flex items-center gap-1.5"><Badge variant="outline">{step}</Badge>{i < arr.length - 1 && <span>→</span>}</span>)}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIntakeOpen(false)}>Cancel</Button>
+          <Button onClick={() => void submitUnseen()} disabled={busy || !specFile || !eventFile || !preflight}>Submit release →</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
-    {resetOpen && <div className="fl-modal-backdrop centered" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setResetOpen(false); }}><section className="fl-reset" role="dialog" aria-modal="true"><header><span>Reset demo</span><h2>Return the context layer to v0?</h2><p>Agent runs and context versions will be cleared. Raw Atlys and generated feature tables remain untouched.</p></header><label><span>Type <code>RESET</code> to confirm</span><input value={resetConfirmation} onChange={(event) => setResetConfirmation(event.target.value)} placeholder="RESET" /></label><footer><button onClick={() => setResetOpen(false)}>Keep versions</button><button className="danger" onClick={() => void resetBaseline()} disabled={busy || resetConfirmation !== "RESET"}>Reset baseline</button></footer></section></div>}
+    <Dialog open={resetOpen} onOpenChange={(open) => { if (!busy) setResetOpen(open); }}>
+      <DialogContent>
+        <DialogHeader>
+          <span className="text-xs text-muted-foreground">Reset demo</span>
+          <DialogTitle>Return the context layer to v0?</DialogTitle>
+          <DialogDescription>Agent runs and context versions will be cleared. Raw Atlys and generated feature tables remain untouched.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-1.5">
+          <Label>Type <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">RESET</code> to confirm</Label>
+          <Input value={resetConfirmation} onChange={(event) => setResetConfirmation(event.target.value)} placeholder="RESET" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setResetOpen(false)}>Keep versions</Button>
+          <Button variant="destructive" onClick={() => void resetBaseline()} disabled={busy || resetConfirmation !== "RESET"}>Reset baseline</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
-    {powerChatOpen && <div className="fl-modal-backdrop centered" onMouseDown={(event) => { if (event.target === event.currentTarget) setPowerChatOpen(false); }}><section className="fl-power-modal" role="dialog" aria-modal="true"><BrandMark /><span>FeatureLens Power Chat</span><h2>LibreChat is ready to connect.</h2><p>Power Chat runs as a separate conversational client through the same governed FeatureLens MCP tools. Configure its public URL to open it from this workspace.</p><div><span>✓ Shared ClickHouse evidence</span><span>✓ Context-aware follow-ups</span><span>✓ Langfuse trace IDs</span></div><footer><button onClick={() => setPowerChatOpen(false)}>Continue in FeatureLens</button></footer></section></div>}
+    <Dialog open={powerChatOpen} onOpenChange={setPowerChatOpen}>
+      <DialogContent>
+        <DialogHeader className="items-center text-center sm:text-center">
+          <BrandMark />
+          <span className="mt-1 text-xs text-muted-foreground">FeatureLens Power Chat</span>
+          <DialogTitle>LibreChat is ready to connect.</DialogTitle>
+          <DialogDescription>Power Chat runs as a separate conversational client through the same governed FeatureLens MCP tools. Configure its public URL to open it from this workspace.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+          {["Shared ClickHouse evidence", "Context-aware follow-ups", "Langfuse trace IDs"].map((feature) => <span key={feature} className="flex items-center gap-2"><Check className="size-4 text-emerald-600 dark:text-emerald-400" /> {feature}</span>)}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPowerChatOpen(false)}>Continue in FeatureLens</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </main>;
 }
