@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS silver.group_family_events
 (
+    job_id String,
     event_name LowCardinality(String),
     event_id String,
     timestamp DateTime64(3),
-    job_id String,
     app_version LowCardinality(String),
     application_id String,
     city LowCardinality(String),

@@ -36,7 +36,7 @@
 - Slug: `status_sharing`
 - Table: `silver.status_sharing_events`
 - Primary entity: `share_id`
-- Workflow type: `funnel`
+- Workflow type: `referral_loop`
 - Events: `share_clicked` -> `channel_selected` -> `link_generated` -> `link_opened` -> `recipient_cta_clicked`
 
 ## abandoned_checkout_recovery
@@ -62,7 +62,7 @@
 - Slug: `instant_forex`
 - Table: `silver.instant_forex_events`
 - Primary entity: `application_id`
-- Workflow type: `funnel`
+- Workflow type: `revenue_addon`
 - Events: `forex_offer_shown` -> `currency_selected` -> `amount_entered` -> `forex_added_to_cart` -> `forex_purchased`
 
 ## promo_coupon_checkout

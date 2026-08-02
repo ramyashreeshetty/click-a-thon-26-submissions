@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS silver.instant_forex_events
     to_currency LowCardinality(String),
     user_id String,
     raw_json String,
-    ingested_at DateTime DEFAULT now()
+    ingested_at DateTime DEFAULT now(),
+    device LowCardinality(String),
+    geoip_country LowCardinality(String)
 )
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(timestamp)

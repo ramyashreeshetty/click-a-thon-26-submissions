@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS silver.abandoned_checkout_recovery_events
     device_type LowCardinality(String),
     drop_step LowCardinality(String),
     geoip_country_code LowCardinality(String),
-    hours_since_drop Nullable(Int64),
+    hours_since_drop Nullable(UInt8),
     os Nullable(String),
     user_id String,
     raw_json String

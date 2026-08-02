@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS silver.status_sharing_events
     share_id String,
     status_shared Nullable(String),
     user_id Nullable(String),
-    raw_json String,
-    ingested_at DateTime DEFAULT now()
+    ingested_at DateTime DEFAULT now(),
+    raw_json String
 )
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(timestamp)
-ORDER BY (timestamp, share_id, event_id)
+ORDER BY (timestamp, event_id)
 TTL timestamp + INTERVAL 18 MONTH;

@@ -1,4 +1,4 @@
--- express_checkout (20260802T022058_01_express_checkout)
+-- express_checkout (20260802T034838_01_express_checkout)
 CREATE TABLE IF NOT EXISTS silver.express_checkout_events
 (
     event_name LowCardinality(String),
@@ -33,13 +33,13 @@ PARTITION BY toYYYYMM(timestamp)
 ORDER BY (timestamp, event_id)
 TTL timestamp + INTERVAL 18 MONTH;
 
--- group_family (20260802T022106_02_group_family)
+-- group_family (20260802T034847_02_group_family)
 CREATE TABLE IF NOT EXISTS silver.group_family_events
 (
+    job_id String,
     event_name LowCardinality(String),
     event_id String,
     timestamp DateTime64(3),
-    job_id String,
     app_version LowCardinality(String),
     application_id String,
     city LowCardinality(String),
@@ -63,7 +63,7 @@ PARTITION BY toYYYYMM(timestamp)
 ORDER BY (timestamp, event_id)
 TTL timestamp + INTERVAL 18 MONTH;
 
--- status_sharing (20260802T022114_03_status_sharing)
+-- status_sharing (20260802T034858_03_status_sharing)
 CREATE TABLE IF NOT EXISTS silver.status_sharing_events
 (
     event_name LowCardinality(String),
@@ -84,15 +84,15 @@ CREATE TABLE IF NOT EXISTS silver.status_sharing_events
     share_id String,
     status_shared Nullable(String),
     user_id Nullable(String),
-    raw_json String,
-    ingested_at DateTime DEFAULT now()
+    ingested_at DateTime DEFAULT now(),
+    raw_json String
 )
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(timestamp)
-ORDER BY (timestamp, share_id, event_id)
+ORDER BY (timestamp, event_id)
 TTL timestamp + INTERVAL 18 MONTH;
 
--- abandoned_checkout_recovery (20260802T022122_04_abandoned_checkout_recovery)
+-- abandoned_checkout_recovery (20260802T034906_04_abandoned_checkout_recovery)
 CREATE TABLE IF NOT EXISTS silver.abandoned_checkout_recovery_events
 (
     event_name LowCardinality(String),
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS silver.abandoned_checkout_recovery_events
     device_type LowCardinality(String),
     drop_step LowCardinality(String),
     geoip_country_code LowCardinality(String),
-    hours_since_drop Nullable(Int64),
+    hours_since_drop Nullable(UInt8),
     os Nullable(String),
     user_id String,
     raw_json String
@@ -119,7 +119,7 @@ PARTITION BY toYYYYMM(timestamp)
 ORDER BY (timestamp, event_id)
 TTL timestamp + INTERVAL 18 MONTH;
 
--- instant_forex (20260802T022130_05_instant_forex)
+-- instant_forex (20260802T034913_05_instant_forex)
 CREATE TABLE IF NOT EXISTS silver.instant_forex_events
 (
     event_name LowCardinality(String),
@@ -141,20 +141,22 @@ CREATE TABLE IF NOT EXISTS silver.instant_forex_events
     to_currency LowCardinality(String),
     user_id String,
     raw_json String,
-    ingested_at DateTime DEFAULT now()
+    ingested_at DateTime DEFAULT now(),
+    device LowCardinality(String),
+    geoip_country LowCardinality(String)
 )
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY (timestamp, event_id)
 TTL timestamp + INTERVAL 18 MONTH;
 
--- promo_coupon_checkout (20260802T031310_06_promo_coupon_checkout)
+-- promo_coupon_checkout (20260802T034920_06_promo_coupon_checkout)
 CREATE TABLE IF NOT EXISTS silver.promo_coupon_checkout_events
 (
+    job_id String,
     event_name LowCardinality(String),
     event_id String,
     timestamp DateTime64(3),
-    job_id String,
     app_version LowCardinality(String),
     application_id String,
     cart_value Float64,
@@ -163,18 +165,22 @@ CREATE TABLE IF NOT EXISTS silver.promo_coupon_checkout_events
     coupon_code Nullable(String),
     currency LowCardinality(String),
     destination LowCardinality(String),
-    device LowCardinality(String),
     device_type LowCardinality(String),
-    geo LowCardinality(String),
+    device LowCardinality(String),
     geoip_country_code LowCardinality(String),
+    geoip LowCardinality(String),
+    addon_value_inr String,
+    from_currency LowCardinality(String),
+    fx_rate String,
+    to_currency LowCardinality(String),
     os Nullable(String),
     reject_reason Nullable(String),
-    discount_type Nullable(String),
-    discount_amount Nullable(Float64),
-    final_value Nullable(Float64),
     user_id String,
-    raw_json String,
-    ingested_at DateTime DEFAULT now()
+    ingested_at DateTime DEFAULT now(),
+    discount_amount Nullable(Float64),
+    discount_type Nullable(String),
+    final_value Nullable(Float64),
+    raw_json String
 )
 ENGINE = ReplacingMergeTree
 PARTITION BY toYYYYMM(timestamp)

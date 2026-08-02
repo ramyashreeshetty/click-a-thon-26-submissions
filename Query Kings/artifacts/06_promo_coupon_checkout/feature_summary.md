@@ -1,10 +1,12 @@
 # 6th spec — Promo / Coupon at Checkout
 
-**Job:** `20260802T031310_06_promo_coupon_checkout`
+**Instrumentation job:** `20260802T034920_06_promo_coupon_checkout`
 **Table:** `silver.promo_coupon_checkout_events`
 **Rows loaded:** 5363
-**Langfuse trace ID:** `d563ad2162501bba645baba60f239412`
-**Langfuse URL:** http://localhost:3000/project/schema-kings/traces?search=d563ad2162501bba645baba60f239412&searchType=id&searchType=content
+**Langfuse trace ID:** `571e24649eb2729de05f2e53f35d351b`
+**Langfuse URL:** http://localhost:3000/project/schema-kings/traces?search=571e24649eb2729de05f2e53f35d351b&searchType=id&searchType=content
+
+> After Cloud/JP re-run, replace localhost Langfuse URLs with public `https://jp.cloud.langfuse.com/...` links.
 
 ## Product-facing summary
 
@@ -24,10 +26,14 @@ Feature instrumented from the sealed unseen spec. Silver table `silver.promo_cou
 - Workflow type: `funnel`
 - Events: `coupon_field_shown` -> `coupon_entered` -> `coupon_applied` -> `coupon_rejected` -> `discount_shown` -> `checkout_with_coupon`
 
-## Trace
+## Product insight (Analytics Agent)
 
-Replace localhost Langfuse URL with a Cloud share / export before final submission if needed.
-Paste a Cloud public/share link below when available:
+**Question:** How are promo codes affecting checkout conversion, and where do coupons get rejected?
 
-- Instrumentation trace: `d563ad2162501bba645baba60f239412`
-- Insight ask (if run): _add after `pnpm cli ask` on this feature_
+**Answer:** Feature funnel: coupon_field_shown=2,100 → coupon_entered=848 → coupon_applied=580 → coupon_rejected=268 → discount_shown=580 → checkout_with_coupon=987. Start→end conversion: 47.00% (2,100 → 987).
+
+**Ask job:** `20260802T035042_ask_how_are_promo_codes_affecting_checkout_conversio`
+**Ask trace ID:** `2615da1310abdacee056c3ad4de7317a`
+**Ask Langfuse URL:** http://localhost:3000/project/schema-kings/traces?search=2615da1310abdacee056c3ad4de7317a&searchType=id&searchType=content
+
+Full write-up: [`../analytics/05_promo_coupon_insight.md`](../analytics/05_promo_coupon_insight.md)
