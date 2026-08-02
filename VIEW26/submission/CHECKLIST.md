@@ -16,12 +16,12 @@
 - [x] Four standard PM probes captured with synced traces.
 - [x] All eleven graded Langfuse traces published as public share links.
 - [x] Hosted application deployed and verified at [https://clickathon-2026.view26.com](https://clickathon-2026.view26.com).
+- [x] Team-member names and GitHub handles included in root `README.md`.
 - [x] Backend test suite passes.
 - [x] Pitch-deck source and PDF are generated and visually verified.
 
 ## Owner actions before the PR
 
-- [ ] Add all team-member names and handles to root `README.md`.
 - [ ] Record the final 2–3 minute demo and replace the video placeholder in `README.md`.
 - [ ] Rotate the Langfuse secret that appeared in a screenshot; update staging `.env` only.
 - [ ] Copy the repository into `VIEW26/` at the root of the official submissions fork.

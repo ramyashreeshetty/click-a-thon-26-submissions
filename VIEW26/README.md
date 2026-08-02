@@ -11,7 +11,7 @@ FeatureLens is an agentic product-analytics system for the **Atlys Click-a-thon 
 | Team | VIEW26 |
 | Track | Atlys — Agents That Instrument, Analyze, and Explain |
 | Project | FeatureLens — The Agentic Context Layer for Trustworthy Product Analytics |
-| Team members | **Add names and handles before the submission PR** |
+| Team members | Ajay Emmanuel ([@ajayep26](https://github.com/ajayep26))<br>Jozef N ([@jzf21](https://github.com/jzf21))<br>Anjitha Joys ([@anjithajoys](https://github.com/anjithajoys)) |
 
 ## Hosted demo
 
