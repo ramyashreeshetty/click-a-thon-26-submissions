@@ -12,6 +12,9 @@
 
 ---
 
+## Demo [Link](https://drive.google.com/file/d/1tIQirJLPT-ENii_bnoLiiXF-9hzAAnSK/view?ts=6a6edde2)
+
+
 ## 🌐 Hosted Demo & Unified Web Interface
 
 InsightMesh provides a **single unified conversational interface in LibreChat** (`http://localhost:3080`) powered by two dedicated agent models that handle both feature schema instrumentation and diagnostic analytics:
