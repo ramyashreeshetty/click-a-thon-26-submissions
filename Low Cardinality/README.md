@@ -43,13 +43,21 @@ replaced by the template.
 
 ## Hosted Demo
 
-*(see `DEMO.md` — a tunnel URL is published for the judging window, with the recorded walkthrough
-below as the permanent record.)*
+There is no permanently hosted URL. The system is one `docker compose up` away from running
+against your own ClickHouse Cloud service — see [How to run it](#how-to-run-it), which is the
+same path the recording was made on, and takes about five minutes from a clean checkout.
+
+That is a deliberate trade rather than an omission. The investigation reads and writes a live
+ClickHouse service holding 10.5M events, and the console can trigger ingestion; standing that
+up behind a public URL without authentication would have meant either exposing a writable
+endpoint or building the auth the track guidelines put out of scope. The recorded walkthrough
+below covers everything a hosted link would have shown, end to end and in one take.
 
 ## Demo Video
 
-`demo.mp4` in this folder — 2–3 minutes, end to end: a quiet day, the unseen release pointed at
-the system from the console, the drill-down, the diagnosis, the trace, and a follow-up in chat.
+**[`demo.mp4`](demo.mp4)** — 2m54s, end to end against the unseen release: a quiet day, the
+release pointed at the system from the console, the drill-down, the diagnosis, the trace in
+HyperDX, and a follow-up question answered in chat over the same tables.
 
 ## The unseen incident bundle
 
@@ -183,6 +191,15 @@ detector's blind spot. Both refusals are published rather than hidden.
 | **ClickHouse Cloud** | Primary datastore *and* analytical engine. Raw events, the rollup lattice via incremental MVs, dimension dictionaries, and every persisted case, candidate, trace step and coverage gap. |
 | **ClickStack / HyperDX** | Every run emits OpenTelemetry spans; each case stores its `trace_id` and the console deep-links into HyperDX with the window pre-filtered. Collector config in `docker-compose.yml`. |
 | **LibreChat** | Shipped as **Verdict.AI**, a chat surface wired to the official **ClickHouse MCP server**, so a follow-up question runs a real query against the same tables the verdict came from. Config in `config/librechat.yaml`. |
+
+ClickStack writes to `default.otel_traces` on the same ClickHouse Cloud service that holds the
+data, so a span and the rows it was computed from are one join apart. The collector is
+configured inline in `docker-compose.yml` (`clickhouse/clickstack-otel-collector`), and the
+engine exports to it over OTLP via `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+Both are shown live in [`demo.mp4`](demo.mp4): the HyperDX span tree for the iOS 17.5 verdict,
+reached through the console's deep link with the window pre-filtered, and Verdict.AI answering a
+follow-up by running SQL through the MCP server against the same tables the verdict came from.
 
 ### LLM provider
 
