@@ -11,7 +11,7 @@ rank segments; it accuses one and then tries to prove itself wrong.
 
 ## Team Members
 
-- Sohham Seal
+- Sohham Seal ([@SohhamS](https://github.com/SohhamS))
 
 ## What it does
 
