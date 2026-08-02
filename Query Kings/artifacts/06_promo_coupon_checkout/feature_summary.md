@@ -4,9 +4,7 @@
 **Table:** `silver.promo_coupon_checkout_events`
 **Rows loaded:** 5363
 **Langfuse trace ID:** `571e24649eb2729de05f2e53f35d351b`
-**Langfuse URL:** http://localhost:3000/project/schema-kings/traces?search=571e24649eb2729de05f2e53f35d351b&searchType=id&searchType=content
-
-> After Cloud/JP re-run, replace localhost Langfuse URLs with public `https://jp.cloud.langfuse.com/...` links.
+**Langfuse URL:** https://jp.cloud.langfuse.com/project/cmsb9811u001iad0izjcsxm8e/traces/571e24649eb2729de05f2e53f35d351b
 
 ## Product-facing summary
 
@@ -34,6 +32,6 @@ Feature instrumented from the sealed unseen spec. Silver table `silver.promo_cou
 
 **Ask job:** `20260802T035042_ask_how_are_promo_codes_affecting_checkout_conversio`
 **Ask trace ID:** `2615da1310abdacee056c3ad4de7317a`
-**Ask Langfuse URL:** http://localhost:3000/project/schema-kings/traces?search=2615da1310abdacee056c3ad4de7317a&searchType=id&searchType=content
+**Ask Langfuse URL:** https://jp.cloud.langfuse.com/project/cmsb9811u001iad0izjcsxm8e/traces/2615da1310abdacee056c3ad4de7317a
 
 Full write-up: [`../analytics/05_promo_coupon_insight.md`](../analytics/05_promo_coupon_insight.md)

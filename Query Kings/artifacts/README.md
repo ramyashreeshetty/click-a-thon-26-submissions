@@ -10,4 +10,4 @@ Exported from local ClickHouse (`ops.job_artifacts`) after running specs 01–06
 | `06_promo_coupon_checkout/` | 6th schema + summary + product insight       |
 | `langfuse/TRACE_LINKS.md`   | Trace IDs / URLs                             |
 
-Langfuse links are local (`localhost:3000`). After Cloud/JP re-run with public traces, update URLs to `https://jp.cloud.langfuse.com/...`.
+Langfuse links point at JP Cloud (`https://jp.cloud.langfuse.com`) for public/shareable traces.

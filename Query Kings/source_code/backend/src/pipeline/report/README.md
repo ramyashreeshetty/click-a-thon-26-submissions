@@ -98,13 +98,13 @@ Read-only. No ClickHouse required to **render** a report from existing artifacts
 Default (with project id set):
 
 ```text
-{LANGFUSE_BASE_URL}/project/{LANGFUSE_PROJECT_ID}/traces?search={trace_id}&searchType=id&searchType=content
+{LANGFUSE_BASE_URL}/project/{LANGFUSE_PROJECT_ID}/traces/{trace_id}
 ```
 
 Optional override:
 
 ```env
-LANGFUSE_TRACE_URL_TEMPLATE=http://localhost:3000/project/YOUR_ID/traces?search={trace_id}&searchType=id&searchType=content
+LANGFUSE_TRACE_URL_TEMPLATE=https://jp.cloud.langfuse.com/project/YOUR_ID/traces/{trace_id}
 ```
 
 ---

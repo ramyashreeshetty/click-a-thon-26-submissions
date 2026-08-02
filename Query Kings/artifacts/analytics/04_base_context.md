@@ -6,9 +6,7 @@
 
 **Langfuse trace ID:** `808bae8954a97356493d053aa3eb417c`
 
-**Langfuse URL:** http://localhost:3000/project/schema-kings/traces?search=808bae8954a97356493d053aa3eb417c&searchType=id&searchType=content
-
-> Local Langfuse — replace with JP Cloud public URL after prod re-run.
+**Langfuse URL:** https://jp.cloud.langfuse.com/project/cmsb9811u001iad0izjcsxm8e/traces/808bae8954a97356493d053aa3eb417c
 
 ## Short answer
 

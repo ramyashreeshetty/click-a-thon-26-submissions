@@ -16,13 +16,10 @@ export function langfuseTraceUrl(traceId: string): string {
     "http://localhost:3000";
 
   const projectId = process.env.LANGFUSE_PROJECT_ID?.trim();
+  // Direct trace URL (works for public/shared traces). Search URLs require login.
   if (projectId) {
-    const params = new URLSearchParams();
-    params.set("search", traceId);
-    // Langfuse UI expects both searchType entries (id + content).
-    return `${base}/project/${projectId}/traces?${params.toString()}&searchType=id&searchType=content`;
+    return `${base}/project/${projectId}/traces/${encodeURIComponent(traceId)}`;
   }
 
-  // Fallback when project id is missing — still searchable in Langfuse UI.
-  return `${base}/traces?search=${encodeURIComponent(traceId)}&searchType=id&searchType=content`;
+  return `${base}/traces/${encodeURIComponent(traceId)}`;
 }
