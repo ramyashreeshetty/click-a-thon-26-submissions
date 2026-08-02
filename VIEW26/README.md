@@ -38,9 +38,9 @@ The public deployment includes the release workflow, human schema-approval gate,
 
 ## Demo Video
 
-**Pending: add the final 2–3 minute Loom, YouTube, or public Google Drive URL before marking the submission ready for review.**
+**[Watch the FeatureLens Agentic System Demo Overview on Loom](https://www.loom.com/share/1d4adc3b81914396b61e970b3bf421f9)**
 
-Suggested recording path: release inbox → schema approval → context v5→v6 → surprise insight → Trace Explorer → one portfolio question.
+The demo covers the instrumentation gate, versioned semantic context, the decision inbox, playbook-generated dashboards, and end-to-end Langfuse traceability.
 
 ## Architecture
 
