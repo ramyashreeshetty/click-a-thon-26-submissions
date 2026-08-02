@@ -1215,8 +1215,9 @@ export default function ProductWorkspace() {
           return [newest, ...current.filter((item) => item.id !== next.id)];
         });
         if (next.context) {
-          setContextVersion(next.context.version);
-          setLatestContext(next.context);
+          const publishedContext = next.context;
+          setContextVersion((current) => Math.max(current, publishedContext.version));
+          setLatestContext((current) => !current || publishedContext.version >= current.version ? publishedContext : current);
         }
         if (["completed", "failed"].includes(next.stage)) {
           source.close();
