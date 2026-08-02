@@ -10,9 +10,8 @@ InMobi — *From alert to answer: the automated root-cause analyst*
 
 ## Team Members
 
-<!-- TODO: replace with real names and GitHub handles -->
-- TBD (@github-handle)
-- TBD (@github-handle)
+- ayushrajchauhan99@gmail.com
+- bharath.8199@gmail.com
 
 ## What it does
 
