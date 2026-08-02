@@ -7,6 +7,7 @@
 [![ClickStack OTLP](https://img.shields.io/badge/ClickStack-OTLP_Collector-FF6B00?style=flat&logo=clickhouse)](Backend/CLICKSTACK_TELEMETRY.md)
 [![LlamaIndex TS](https://img.shields.io/badge/LlamaIndex-TS_Framework-000000?style=flat&logo=llamaindex)](https://www.llamaindex.ai/)
 [![Langfuse](https://img.shields.io/badge/Langfuse-LLM_Observability-000000?style=flat&logo=langfuse)](https://langfuse.com)
+[![Pitch Deck](https://img.shields.io/badge/Pitch_Deck-Google_Slides-EA4335?style=flat&logo=google-slides)](https://docs.google.com/presentation/d/1RsfP0r0LO-tU4h8CPzr8MJPyB5VZDgnvPVagR-cCsC8/edit?usp=sharing)
 
 ---
 
@@ -332,7 +333,9 @@ npm run dev
 
 ---
 
-## 📄 Documentation Links
+## 📄 Documentation Links & Assets
+- 📊 **[Pitch Deck Presentation (Google Slides)](https://docs.google.com/presentation/d/1RsfP0r0LO-tU4h8CPzr8MJPyB5VZDgnvPVagR-cCsC8/edit?usp=sharing)**
+- 📁 **[Pitch Deck PDF Document](DataBots_Pitch_Deck.pdf)**
 - [Go RCA Engine Architecture Guide](Engine/README.md)
 - [ClickStack & OpenTelemetry Setup Guide](Backend/CLICKSTACK_TELEMETRY.md)
 - [Model Context Protocol (MCP) Setup Guide](Backend/MCP_SETUP.md)
