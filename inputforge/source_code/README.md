@@ -1,159 +1,90 @@
-# Turborepo starter
+# Sentinel — InMobi automated root-cause analyst
 
-This Turborepo starter is maintained by the Turborepo core team.
+Sentinel detects statistically unusual ad-tech delivery metrics in ClickHouse,
+then lets an evidence-grounded agent investigate the affected period. The
+detector never uses an LLM; the investigator can only draw numerical claims
+from its ClickHouse tools.
 
-## Using this example
+## Architecture
 
-Run the following command:
-
-```sh
-npx create-turbo@latest
+```text
+inmobi.ad_events
+  -> ClickHouse materialized views -> anomalies / segment_anomalies / incidents
+  -> Sentinel agent -> scoped ClickHouse evidence queries -> diagnosis
+                       |                         |
+                       |                         +-> Langfuse trace (queries, tools, model usage)
+                       +-> ClickStack OTLP collector -> ClickHouse otel_traces / otel_logs / otel_metrics
 ```
 
-## What's inside?
+Stage 1 (`apps/detection-service`) is ClickHouse-native: reactive and
+refreshable materialized views create the anomaly and incident work queues.
+Stage 2 (`apps/sentinel-agent`) performs the investigation. Its tools query
+the detected time window and contributing segments; the LLM narrates the
+returned evidence rather than calculating metrics itself.
 
-This Turborepo includes the following packages/apps:
+### OSS observability services
 
-### Apps and Packages
+Langfuse is part of the investigation workflow, not a passive dependency.
+[`agent/instrumentation.ts`](apps/sentinel-agent/agent/instrumentation.ts)
+registers `LangfuseSpanProcessor` and the AI SDK integration. Each agent
+trace therefore records the investigation orchestrator, delegated analyst,
+ClickHouse tool calls, reasoning steps, model usage, and their parent-child
+relationships. The local stack in [`docker-compose.yml`](docker-compose.yml)
+starts self-hosted Langfuse and its required PostgreSQL, ClickHouse, Redis,
+and MinIO services. [`otel-collector-config.yaml`](otel-collector-config.yaml)
+also accepts OTLP on host ports `14317`/`14318` and forwards it to that
+Langfuse project. The non-default ports avoid clashing with ClickStack.
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+ClickStack captures operational telemetry separately from the Langfuse
+investigation record. The collector configuration in
+[`apps/detection-service/docker-compose.yml`](apps/detection-service/docker-compose.yml)
+accepts OTLP/gRPC (`4317`) and OTLP/HTTP (`4318`) and writes to the ClickHouse
+instance set by `CLICKHOUSE_URL`. The ClickStack schema is the standard
+`otel_traces`, `otel_logs`, and `otel_metrics` tables in that ClickHouse
+database. With `HYPERDX_API_KEY` and `HYPERDX_OTLP_ENDPOINT` configured, the
+same spans are exported by the agent's `clickstackProcessor`; local ClickStack
+can use `HYPERDX_API_KEY=local` and `HYPERDX_OTLP_ENDPOINT=http://localhost:4318`.
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+LibreChat is not used by this project.
 
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
-```
-
-Without global `turbo`, use your package manager:
+## Local observability setup
 
 ```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+# Start self-hosted Langfuse and the OTLP-to-Langfuse collector.
+docker compose up -d
+
+# In apps/sentinel-agent/.env.local, set the local development values from
+# apps/sentinel-agent/.env.example, then start the agent normally.
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Open Langfuse at `http://localhost:3001` (or `LANGFUSE_PORT` if overridden).
+The Compose file pre-seeds a local
+development user (`admin@sentinel.local` / `sentinel-local-password`) and a
+project. These credentials are deliberately public development values; replace
+all of them before deploying outside a local machine.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+For ClickStack, add real ClickHouse credentials to
+`apps/detection-service/.env.local`, then run:
 
 ```sh
-turbo build --filter=docs
+cd apps/detection-service
+docker compose --env-file .env.local up -d clickstack-otel-collector
 ```
 
-Without global `turbo`:
+## Submission evidence
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+Do not require judges to log in to Langfuse. For every graded investigation,
+place either its public Langfuse share link or a JSON export in
+[`evidence/langfuse/`](evidence/langfuse/), and link it from this README.
+Capture the ClickStack trace search or dashboard used during that same run in
+[`evidence/clickstack/`](evidence/clickstack/), then add it here and show the
+same flow in the hosted demo/video. The committed folders contain only
+instructions until a real graded run is produced; no synthetic evidence is
+included.
 
-### Develop
+## Further documentation
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- [`apps/detection-service/README.md`](apps/detection-service/README.md) —
+  detection method, schema, and operational commands.
+- [`PLAN.md`](PLAN.md) — trust boundaries and the intended investigation
+  strategy.

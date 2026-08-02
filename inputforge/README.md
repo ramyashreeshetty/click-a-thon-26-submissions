@@ -55,6 +55,13 @@ diagnosis alongside the raw ClickHouse evidence it's grounded in.
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full diagram and
 component breakdown.
 
+## Langfuse / ClickStack evidence
+
+- Langfuse trace links: [`source_code/evidence/langfuse/traces.md`](./source_code/evidence/langfuse/traces.md)
+  — **TODO:** currently direct project URLs (require Langfuse login); swap
+  for public share links or a JSON export before final submission.
+- ClickStack trace search capture: [`source_code/evidence/clickstack/README.md`](./source_code/evidence/clickstack/README.md)
+
 ## Tech stack
 
 - **ClickHouse** — primary datastore and the *only* place attribution math
@@ -73,9 +80,14 @@ component breakdown.
   or incident qualification, which stay entirely in ClickHouse).
 - **Langfuse** (`@langfuse/otel`, `@langfuse/vercel-ai-sdk`) — full
   investigation trace: every tool call, every ClickHouse query issued, and
-  why.
+  why. Self-hostable locally via [`docker-compose.yml`](./source_code/docker-compose.yml)
+  + [`otel-collector-config.yaml`](./source_code/otel-collector-config.yaml)
+  (OTLP on `14317`/`14318` → Langfuse), or point at Langfuse Cloud.
 - **ClickStack / HyperDX** (`@hyperdx/browser`, OTLP export) — second
-  observability surface for the same trace.
+  observability surface for the same trace, writing the standard
+  `otel_traces`/`otel_logs`/`otel_metrics` tables into ClickHouse via
+  [`apps/detection-service/docker-compose.yml`](./source_code/apps/detection-service/docker-compose.yml)
+  (OTLP on `4317`/`4318`).
 - **Turborepo / pnpm** monorepo.
 
 ## Repo layout
