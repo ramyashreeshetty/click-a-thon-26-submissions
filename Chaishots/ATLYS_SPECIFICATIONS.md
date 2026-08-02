@@ -155,6 +155,7 @@ SELECT payload FROM generated_artifacts WHERE artifact_type = 'schema';
 | 3 | `status_sharing_f3` | `visa_status_sharing_events` | 6,503 | v4 | `089db6c8c215922bc2cac20d2b5817b1` |
 | 4 | `abandoned_checkout_recovery_f4` | `abandoned_checkout_recovery_events` | 5,919 | v5 | `209fbbbae9d7bdfa4ba539f658083ba3` |
 | 5 | `instant_forex_f5` | `instant_forex_addon_events` | 6,237 | v6 | `97e9e1246e32c240e5ce500011f49f6a` |
+| **6** | **`unseen_f6` (sealed)** | **`promo_coupon_checkout_events`** | **5,363** | **v7** | **`e18e58f7f9d834c17e9b52f42f2aa851`** |
 
 Each schema artifact stores not just the DDL but the agent's **reasoning**:
 `schema_reasoning`, `partition_by_reasoning`, and per-field
@@ -162,7 +163,7 @@ Each schema artifact stores not just the DDL but the agent's **reasoning**:
 `time_filter`, `event_filter`, `segment_filter`, `relationship_key`).
 
 <details>
-<summary><strong>Generated DDL — all five features</strong></summary>
+<summary><strong>Generated DDL — all six features</strong></summary>
 
 ```sql
 CREATE TABLE `atlys`.`express_checkout_events`
@@ -280,6 +281,32 @@ CREATE TABLE `atlys`.`instant_forex_addon_events`
 )
 ENGINE = MergeTree
 ORDER BY (`user_id`, `timestamp`, `event`, `destination`);
+
+-- Sealed sixth specification
+CREATE TABLE `atlys`.`promo_coupon_checkout_events`
+(
+    `event` String,
+    `id` String,
+    `timestamp` DateTime64(3),
+    `device_type` String,
+    `os` Nullable(String),
+    `app_version` String,
+    `geoip_country_code` String,
+    `city` String,
+    `client_lib` String,
+    `user_id` String,
+    `application_id` String,
+    `destination` String,
+    `cart_value` Float64,
+    `currency` String,
+    `coupon_code` Nullable(String),
+    `discount_type` Nullable(String),
+    `discount_amount` Nullable(Float64),
+    `final_value` Nullable(Float64),
+    `reject_reason` Nullable(String)
+)
+ENGINE = MergeTree
+ORDER BY (`user_id`, `timestamp`, `event`, `destination`);
 ```
 
 </details>
@@ -350,21 +377,29 @@ SELECT version, created_at, length(document) FROM context_versions ORDER BY vers
 | v4 | + `visa_status_sharing_events` | 7 | 22 (+7) | 2 | 7 |
 | v5 | + `abandoned_checkout_recovery_events` | 9 (+2) | 26 (+4) | 3 | 8 |
 | v6 | + `instant_forex_addon_events` | 11 (+2) | 30 (+4) | 3 | 9 |
+| **v7** | **+ `promo_coupon_checkout_events` (sealed 6th spec)** | **11** | **34 (+4)** | **4** | **10** |
 
-The document grew from 4,412 to 16,028 bytes across the six versions.
+The document grew from 4,412 to 17,917 bytes across the seven versions.
+
+**This is the freshness proof the track asks for:** v7 is the before/after pair
+that matters most, because the sealed sixth spec was unseen when v6 was
+written. The context absorbed a brand-new table and four new coupon metrics
+without any code change.
 
 **Metrics before (v1, 7):** `conversion_rate`, `drop_off_rate`,
 `step_through_rate`, `passport_capture_pass_rate`, `on_time_delivery_rate`,
 `revenue_per_conversion`, `funnel_conversion_rate`.
 
-**Metrics added by v6 (23 new),** including `express_conversion_rate`,
+**Metrics added by v7 (27 new),** including `express_conversion_rate`,
 `otp_success_rate`, `express_adoption_rate`, `average_payment_latency_ms`,
 `group_completion_rate`, `add_remove_churn_rate`, `docs_complete_rate`,
 `share_rate_overall`, `share_rate_by_channel_destination`,
 `k_factor_by_channel`, `link_open_rate`, `overall_recovery_rate`,
 `recovery_rate_by_drop_step`, `channel_recovery_rate`, `timing_recovery_rate`,
-`forex_attach_rate`, `forex_add_to_cart_rate`, and
-`average_forex_addon_value_inr`.
+`forex_attach_rate`, `forex_add_to_cart_rate`,
+`average_forex_addon_value_inr`, and — from the sealed sixth spec —
+`coupon_apply_rate`, `coupon_rejection_rate`, `checkout_with_coupon_rate`, and
+`total_discount_amount`.
 
 Each version also records **conflicts** the Context Agent detected — for
 example, that an access pattern referenced a column `user` on
@@ -372,7 +407,7 @@ example, that an access pattern referenced a column `user` on
 are surfaced in the context document rather than silently resolved.
 
 Exported to [`submission_artifacts/context/`](./submission_artifacts/context/):
-`before.json` (v1, base), `after.json` (v6), every intermediate version, and
+`before.json` (v1, base), `after.json` (v7), every intermediate version, and
 [`changelog.md`](./submission_artifacts/context/changelog.md) with the full
 before/after comparison.
 
@@ -381,10 +416,40 @@ for a run through `GET /api/v1/runs/{run_id}/context-diff`.
 
 ### 3.4 Sixth-spec bundle
 
-> **Pending the sealed sixth specification.** The pipeline is proven on five
-> specs; the sixth runs through the identical single command and will produce
-> its schema, product-facing insight summary, and mandatory trace into the same
-> tables. No hand-editing — the bundle is whatever the pipeline emits.
+The sealed sixth specification ran end to end through the identical single
+command, with no code changes and no hand-editing.
+
+**[`submission_artifacts/06_promo_coupon_checkout/`](./submission_artifacts/06_promo_coupon_checkout/)**
+
+| | |
+|---|---|
+| Feature | `unseen_f6` |
+| Generated table | `promo_coupon_checkout_events` |
+| Rows loaded | 5,363 |
+| Context version after run | v7 |
+| Run ID | `63a7c39b-a158-4acf-b92c-3f15250c9e15` |
+| **Langfuse trace (mandatory)** | `e18e58f7f9d834c17e9b52f42f2aa851` |
+
+| File | Contents |
+|---|---|
+| [`schema.sql`](./submission_artifacts/06_promo_coupon_checkout/schema.sql) | Generated DDL |
+| [`insight-summary.md`](./submission_artifacts/06_promo_coupon_checkout/insight-summary.md) | Product-facing insight summary written by the agent |
+| [`insights.json`](./submission_artifacts/06_promo_coupon_checkout/insights.json) | Full findings with evidence, recommendations, confidence, caveats |
+| [`trace.json`](./submission_artifacts/06_promo_coupon_checkout/trace.json) | Trace reference and run metadata |
+
+The agent handled genuinely unseen fields — `cart_value`, `coupon_code`,
+`discount_type`, `discount_amount`, `final_value`, `reject_reason` — marking
+exactly the sometimes-absent ones nullable, and choosing
+`ORDER BY (user_id, timestamp, event, destination)` with no partitioning at
+5,363 rows.
+
+**The strongest signal in this bundle is a data-quality defect the agent found
+on its own.** It observed apply-to-checkout step-through rates above 100% in
+several segments (Desktop FR at 2.0, iOS EG at 2.07) and concluded the
+`checkout_with_coupon` event is likely emitted even when no discount was
+applied — recommending the event definition be corrected. It also reported *no
+observable conversion lift* from the feature at low confidence rather than
+manufacturing a positive result.
 
 ---
 
@@ -404,14 +469,19 @@ FROM agent_runs WHERE status = 'completed' ORDER BY created_at;
 | `status_sharing_f3` | `089db6c8c215922bc2cac20d2b5817b1` |
 | `abandoned_checkout_recovery_f4` | `209fbbbae9d7bdfa4ba539f658083ba3` |
 | `instant_forex_f5` | `97e9e1246e32c240e5ce500011f49f6a` |
+| **`unseen_f6` (sealed 6th spec — mandatory)** | **`e18e58f7f9d834c17e9b52f42f2aa851`** |
 
 Traces are on Langfuse Cloud (`https://cloud.langfuse.com`). Each covers the
 whole pipeline: profiling, the Instrumentation Agent, DDL validation and
 execution, the Context Agent, analytics SQL execution, and insight
 interpretation. Asklys responses carry their own `langfuse_trace_id`.
 
-> **Pending:** shared public trace links and JSON exports to accompany the IDs
-> above, plus the mandatory sixth-spec trace.
+The mandatory sixth-spec trace is `e18e58f7f9d834c17e9b52f42f2aa851`, also
+recorded in
+[`06_promo_coupon_checkout/trace.json`](./submission_artifacts/06_promo_coupon_checkout/trace.json).
+
+> **Pending:** shared public trace links or JSON exports to accompany the IDs
+> above.
 
 ---
 

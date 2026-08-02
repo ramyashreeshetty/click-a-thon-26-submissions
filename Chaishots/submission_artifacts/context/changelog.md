@@ -1,9 +1,11 @@
 # Context layer changelog
 
-Proof that the semantic context updated as each new feature table landed.
+Proof that the semantic context updated as each new feature table landed —
+including the sealed sixth specification.
+
 Every version is a complete document in the ClickHouse `context_versions`
 table; `before.json` is v1 (base context over the eight existing tables) and
-`after.json` is the newest version.
+`after.json` is v7 (after all six features landed).
 
 ```sql
 SELECT version, created_at, length(document) FROM context_versions ORDER BY version;
@@ -17,6 +19,7 @@ SELECT version, created_at, length(document) FROM context_versions ORDER BY vers
 | v4 | + `visa_status_sharing_events` | 7 | 22 (+7) | 2 | 11,454 |
 | v5 | + `abandoned_checkout_recovery_events` | 9 (+2) | 26 (+4) | 3 | 13,811 |
 | v6 | + `instant_forex_addon_events` | 11 (+2) | 30 (+4) | 3 | 16,028 |
+| v7 | + `promo_coupon_checkout_events` *(sealed 6th spec)* | 11 | 34 (+4) | 4 | 17,917 |
 
 ## Metrics before (v1) — 7
 
@@ -28,7 +31,7 @@ SELECT version, created_at, length(document) FROM context_versions ORDER BY vers
 - `revenue_per_conversion`
 - `step_through_rate`
 
-## Metrics added by v6 — 23
+## Metrics added by v7 — 27
 
 - `express_conversion_rate`
 - `otp_success_rate`
@@ -53,11 +56,16 @@ SELECT version, created_at, length(document) FROM context_versions ORDER BY vers
 - `forex_add_to_cart_rate`
 - `forex_purchase_after_add_rate`
 - `average_forex_addon_value_inr`
+- `coupon_apply_rate`
+- `coupon_rejection_rate`
+- `checkout_with_coupon_rate`
+- `total_discount_amount`
 
-## Conflicts recorded in v6 — 3
+## Conflicts recorded in v7 — 4
 
 The Context Agent surfaces contradictions instead of silently resolving them.
 
 - Validation feedback reports an unknown column 'user' referenced on table 'express_checkout_events'; the schema only contains 'user_id', not 'user'.
 - Validation feedback reports unknown column 'group' referenced in access pattern for entity 'Group Application Event' on table 'group_application_events'; the column does not exist in the supplied schema.
 - Validation feedback reports unknown column 'user' referenced on table 'abandoned_checkout_recovery_events' for entity 'Abandoned Checkout Recovery Event'.
+- Validation feedback reports an unknown column 'user' referenced on table 'promo_coupon_checkout_events' for entity 'Promo Coupon Checkout Event'

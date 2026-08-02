@@ -1,6 +1,7 @@
--- Generated DDL for all feature specs, Team Chaishots (Asklys).
+-- Generated DDL for all six feature specs, Team Chaishots (Asklys).
 -- Produced by the Instrumentation Agent and validated in Python before execution.
 -- Source of truth: ClickHouse `generated_artifacts` where artifact_type='schema'.
+-- The final table below is the sealed sixth specification.
 
 -- express_checkout_events
 CREATE TABLE `atlys`.`express_checkout_events`
@@ -119,6 +120,32 @@ CREATE TABLE `atlys`.`instant_forex_addon_events`
     `fx_rate` Nullable(Float64),
     `amount` Nullable(Int64),
     `addon_value_inr` Nullable(Float64)
+)
+ENGINE = MergeTree
+ORDER BY (`user_id`, `timestamp`, `event`, `destination`);
+
+-- promo_coupon_checkout_events
+CREATE TABLE `atlys`.`promo_coupon_checkout_events`
+(
+    `event` String,
+    `id` String,
+    `timestamp` DateTime64(3),
+    `device_type` String,
+    `os` Nullable(String),
+    `app_version` String,
+    `geoip_country_code` String,
+    `city` String,
+    `client_lib` String,
+    `user_id` String,
+    `application_id` String,
+    `destination` String,
+    `cart_value` Float64,
+    `currency` String,
+    `coupon_code` Nullable(String),
+    `discount_type` Nullable(String),
+    `discount_amount` Nullable(Float64),
+    `final_value` Nullable(Float64),
+    `reject_reason` Nullable(String)
 )
 ENGINE = MergeTree
 ORDER BY (`user_id`, `timestamp`, `event`, `destination`);

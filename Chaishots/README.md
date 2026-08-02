@@ -91,14 +91,17 @@ warehouse directly.
 
 ## Demo Video
 
-<!-- TODO: URL, must open without requesting access, 2–3 minutes -->
+https://drive.google.com/drive/folders/1ug3Hupy_keF60GNZncjCfd7aohPelOnq?usp=drive_link
 
 ## OSS stack evidence
 
 | Tool | Role in pipeline | Proof for judges |
 |---|---|---|
 | **ClickHouse Cloud** | Primary datastore, analytical engine, and the context layer's own home (`context_versions`, `generated_artifacts`) | Generated DDL + run reports in [`submission_artifacts/`](./submission_artifacts/) |
-| **Langfuse Cloud** | Pipeline, agent, and tool traces for every run | Trace exports in [`submission_artifacts/`](./submission_artifacts/); wiring described in [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| **Langfuse Cloud** | Pipeline, agent, and tool traces for every run | Trace export: [`langfuse_traces.csv`](./langfuse_traces.csv); wiring described in [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+
+The exported Langfuse traces are stored at
+[`./langfuse_traces.csv`](./langfuse_traces.csv) from the repository root.
 
 ## Architecture
 
@@ -227,6 +230,7 @@ submission is completely self-contained.
 backend/                 FastAPI API, agents, pipeline, MCP server, and CLI
 frontend/                React/Vite run explorer and Asklys analysis interface
 incoming_features/       Feature specifications and NDJSON event inputs
+langfuse_traces.csv       Exported Langfuse pipeline, agent, and tool traces
 submission_artifacts/    Generated schemas, reports, context diffs, and traces
 dev.sh                   One-command local application launcher
 ARCHITECTURE.md          Detailed architecture and design decisions
