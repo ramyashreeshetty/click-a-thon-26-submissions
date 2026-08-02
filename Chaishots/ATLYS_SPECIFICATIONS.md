@@ -437,6 +437,10 @@ command, with no code changes and no hand-editing.
 | [`insights.json`](./submission_artifacts/06_promo_coupon_checkout/insights.json) | Full findings with evidence, recommendations, confidence, caveats |
 | [`trace.json`](./submission_artifacts/06_promo_coupon_checkout/trace.json) | Trace reference and run metadata |
 
+**PM evidence tag — `PM-COUPON-READONLY-2026-08-02`:** the product questions
+were also answered with read-only ClickHouse queries and recorded in
+[`insight-summary.md#pm-answers-verified-directly-in-clickhouse`](./submission_artifacts/06_promo_coupon_checkout/insight-summary.md#pm-answers-verified-directly-in-clickhouse).
+
 The agent handled genuinely unseen fields — `cart_value`, `coupon_code`,
 `discount_type`, `discount_amount`, `final_value`, `reject_reason` — marking
 exactly the sometimes-absent ones nullable, and choosing
