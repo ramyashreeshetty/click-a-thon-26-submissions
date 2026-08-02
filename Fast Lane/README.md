@@ -42,8 +42,7 @@ The quantified evidence and ruled-out alternatives are in
 
 ## Hosted Demo
 
-**Add the public hosted-demo URL before submission.** It should show a confirmed
-alert, ClickHouse drill-down, diagnosis, and trace in one end-to-end flow.
+
 
 ## Demo Video
 
@@ -161,3 +160,6 @@ and `src/trigger_demo_alert.sh`. Never commit credentials.
 - [Data onboarding and method notes](README-real.md)
 - [Pitch deck](rca-overview-deck.pdf)
 - [Source SQL](schemas)
+
+## Future Plan
+Currently, we send the RCA to the ClickHouse database. In the future, we will send it to Slack instead.
