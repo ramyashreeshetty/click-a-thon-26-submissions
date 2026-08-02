@@ -56,7 +56,13 @@ func questionCoverage(graph domain.ContextVersion, answers []domain.QuestionResp
 		contract := answer.Contract
 		plans[contract.Playbook] = true
 		intents[contract.Intent] = true
-		if strings.TrimSpace(answer.Insight.SQL) != "" {
+		if contract.Answerability == "not_answerable" {
+			// A governed abstention is a distinct plan outcome: it must be
+			// ontology-linked, explain why evidence is unavailable, and execute
+			// no SQL. Rewarding this path keeps the quality gate from pressuring
+			// agents to fabricate an executable query for unsupported claims.
+			sqlPlans["abstain:"+contract.Playbook] = true
+		} else if strings.TrimSpace(answer.Insight.SQL) != "" {
 			sqlPlans[normalizeSQL(answer.Insight.SQL)] = true
 		}
 		playbookLinked := containsNode(graph, contract.Playbook) && questionUsesPlaybook(graph, contract.Question, contract.Playbook)
@@ -70,7 +76,8 @@ func questionCoverage(graph domain.ContextVersion, answers []domain.QuestionResp
 			}
 		}
 		_, queryFailed := answer.Insight.Evidence["query_error"]
-		if contract.Playbook != "" && contract.Answerability != "not_answerable" && playbookLinked && evidenceComplete && !queryFailed {
+		abstentionGrounded := contract.Answerability == "not_answerable" && strings.TrimSpace(answer.Insight.SQL) == "" && strings.TrimSpace(fmt.Sprint(answer.Insight.Evidence["reason"])) != ""
+		if contract.Playbook != "" && playbookLinked && evidenceComplete && !queryFailed && (contract.Answerability != "not_answerable" || abstentionGrounded) {
 			covered++
 		}
 	}

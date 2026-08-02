@@ -172,19 +172,30 @@ func (ContextAgent) Evolve(parent domain.ContextVersion, input domain.FeatureInp
 		)
 	}
 
-	for index, eventName := range profile.EventOrder {
+	for _, eventName := range profile.EventOrder {
 		eventKey := "event:" + eventName
-		nodes = append(nodes, domain.ContextNode{Key: eventKey, Type: "event", Name: eventName, Status: "observed", Confidence: .99, Sources: []string{"event profile"}, Properties: map[string]any{"sample_count": profile.EventCounts[eventName], "sequence_position": index + 1}})
+		nodes = append(nodes, domain.ContextNode{Key: eventKey, Type: "event", Name: eventName, Status: "observed", Confidence: .99, Sources: []string{"event profile"}, Properties: map[string]any{"sample_count": profile.EventCounts[eventName]}})
 		edges = append(edges,
 			domain.ContextEdge{From: featureKey, Relation: "EMITS", To: eventKey, Status: "verified", Confidence: .99},
 			domain.ContextEdge{From: eventKey, Relation: "STORED_IN", To: tableKey, Status: "verified", Confidence: .99},
 		)
-		if index > 0 {
-			edges = append(edges, domain.ContextEdge{From: "event:" + profile.EventOrder[index-1], Relation: "PRECEDES", To: eventKey, Status: "inferred", Confidence: .9})
-		}
 	}
 
 	if dashboard := dashboardPlanFor(input, profile); len(dashboard.Stages) >= 2 {
+		for index, eventName := range dashboard.Stages {
+			for nodeIndex := range nodes {
+				if nodes[nodeIndex].Key == "event:"+eventName {
+					if nodes[nodeIndex].Properties == nil {
+						nodes[nodeIndex].Properties = map[string]any{}
+					}
+					nodes[nodeIndex].Properties["sequence_position"] = index + 1
+					break
+				}
+			}
+			if index > 0 {
+				edges = append(edges, domain.ContextEdge{From: "event:" + dashboard.Stages[index-1], Relation: "PRECEDES", To: "event:" + eventName, Status: "inferred", Confidence: .9})
+			}
+		}
 		first := dashboard.Stages[0]
 		last := dashboard.Stages[len(dashboard.Stages)-1]
 		metricKey := "metric:" + slug + "-completion-rate"
@@ -229,6 +240,9 @@ func (ContextAgent) Evolve(parent domain.ContextVersion, input domain.FeatureInp
 		questionKey := fmt.Sprintf("question:%s:%d", slug, index+1)
 		intent := classifyFeatureIntent(input, question)
 		playbookKey, requiredEvidence := playbookForIntent(intent)
+		if intent == "conversion_comparison" && nullableCohortField(question, profile) != "" {
+			playbookKey = "playbook:nullable-cohort-conversion:v1"
+		}
 		nodes = append(nodes, domain.ContextNode{Key: questionKey, Type: "business_question", Name: question, Status: "declared", Confidence: .95, Sources: []string{"feature specification"}, Properties: map[string]any{"role": "product_manager", "intent": intent, "required_evidence": requiredEvidence}})
 		if !contextHasNode(nodes, playbookKey) {
 			nodes = append(nodes, domain.ContextNode{Key: playbookKey, Type: "analysis_playbook", Name: strings.ReplaceAll(strings.TrimPrefix(strings.TrimSuffix(playbookKey, ":v1"), "playbook:"), "-", " "), Status: "verified", Confidence: .95, Sources: []string{"analytics contract compiler"}, Properties: map[string]any{"intent": intent, "required_evidence": requiredEvidence, "execution": "aggregate in ClickHouse"}})
@@ -239,7 +253,7 @@ func (ContextAgent) Evolve(parent domain.ContextVersion, input domain.FeatureInp
 			domain.ContextEdge{From: questionKey, Relation: "RESOLVED_BY", To: playbookKey, Status: "verified", Confidence: .95},
 			domain.ContextEdge{From: playbookKey, Relation: "QUERIES", To: tableKey, Status: "verified", Confidence: .98},
 		)
-		if intent == "conversion_comparison" {
+		if intent == "conversion_comparison" && playbookKey != "playbook:nullable-cohort-conversion:v1" {
 			edges = append(edges,
 				domain.ContextEdge{From: playbookKey, Relation: "QUERIES", To: "table:atlys.pay_now_clicked", Status: "verified", Confidence: .98},
 				domain.ContextEdge{From: playbookKey, Relation: "QUERIES", To: "table:atlys.purchase_completed", Status: "verified", Confidence: .98},

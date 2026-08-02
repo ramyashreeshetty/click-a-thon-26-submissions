@@ -39,3 +39,27 @@ func TestRegressionPreservationBlocksNodeDroppingCandidates(t *testing.T) {
 	}
 	t.Fatal("regression_preservation gate missing")
 }
+
+func TestQuestionCoverageRewardsGovernedAbstention(t *testing.T) {
+	graph := domain.ContextVersion{
+		Nodes: []domain.ContextNode{
+			{Key: "question:sharing:1", Type: "business_question", Name: "Does sharing reduce support demand?"},
+			{Key: "playbook:support-demand-impact:unsupported", Type: "analysis_playbook"},
+		},
+		Edges: []domain.ContextEdge{{
+			From: "question:sharing:1", Relation: "RESOLVED_BY", To: "playbook:support-demand-impact:unsupported",
+		}},
+	}
+	answers := []domain.QuestionResponse{{
+		Contract: domain.AnalysisContract{
+			Question: "Does sharing reduce support demand?", Intent: "support_demand_impact",
+			Playbook: "playbook:support-demand-impact:unsupported", Answerability: "not_answerable",
+		},
+		Insight: domain.Insight{Evidence: map[string]any{"reason": "No support-contact event or unshared comparison cohort is governed."}},
+	}}
+
+	covered, plans, intents, executions := questionCoverage(graph, answers)
+	if covered != 1 || plans != 1 || intents != 1 || executions != 1 {
+		t.Fatalf("governed abstention was not treated as a complete, distinct plan: covered=%d plans=%d intents=%d executions=%d", covered, plans, intents, executions)
+	}
+}
