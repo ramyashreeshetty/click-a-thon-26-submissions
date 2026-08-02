@@ -57,9 +57,7 @@ component breakdown.
 
 ## Langfuse / ClickStack evidence
 
-- Langfuse trace links: [`source_code/evidence/langfuse/traces.md`](./source_code/evidence/langfuse/traces.md)
-  — **TODO:** currently direct project URLs (require Langfuse login); swap
-  for public share links or a JSON export before final submission.
+- Langfuse trace links (public, no login required): [`source_code/evidence/langfuse/traces.md`](./source_code/evidence/langfuse/traces.md)
 - ClickStack trace search capture: [`source_code/evidence/clickstack/README.md`](./source_code/evidence/clickstack/README.md)
 
 ## Tech stack
