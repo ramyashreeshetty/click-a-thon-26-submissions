@@ -1,3 +1,0 @@
-   ┌─rows_returned─┬─looks_like_an_answer_but_is_one_combination─┐
-1. │           378 │                                         285 │
-   └───────────────┴─────────────────────────────────────────────┘

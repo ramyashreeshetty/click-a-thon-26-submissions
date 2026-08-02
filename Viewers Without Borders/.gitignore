@@ -1,44 +1,10 @@
-# --- secrets: never commit a filled-in env file ---
+# Nothing here is committed by accident. This folder is a SUBMISSION package,
+# not a working checkout — it carries source, docs and cited evidence only.
 .env
 .env.*
 !.env.example
-*.pem
-*.key
-secrets/
-credentials.json
-
-# --- data: large inputs stay out of git ---
 data/*.csv
-data/*.parquet
-data/*.native
-!data/.gitkeep
-
-# --- go ---
-# Build output. devbox.lock IS committed — it is the version pin.
 bin/
-dist/
-coverage.out
-coverage.html
-*.test
-*.prof
-# devbox's local nix profile / generated shell files
 .devbox/
-# direnv's cache, not .envrc itself
-.direnv/
-
-# --- local noise ---
-.DS_Store
-__pycache__/
-*.pyc
-.venv/
 node_modules/
-evidence/*.png
-!evidence/.gitkeep
-
-# --- session context: local, not shared. Context-aware but never committed. ---
-CLAUDE.local.md
-.claude/context/
-
-# agent scratch — session-local, never committed
-scratchpad/
-sqlite_mcp_server.db
+*.log

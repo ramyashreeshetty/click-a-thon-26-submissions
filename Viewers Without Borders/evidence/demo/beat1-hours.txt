@@ -1,3 +1,0 @@
-   ┌─actually_watching_hours─┬─naive_span_hours─┬─pct_not_really_watching─┐
-1. │                  1978.1 │           2976.9 │                    33.6 │
-   └─────────────────────────┴──────────────────┴─────────────────────────┘

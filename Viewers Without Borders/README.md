@@ -250,7 +250,6 @@ exits 0 with lint clean and `go test -race` green across all five Go packages.
 | `evidence/unseen/` | the official unseen run, end to end |
 | `docs/FILTERS.md` | filter → column mapping, with proof each one moves the curve |
 | `docs/adr/` | 39 architecture decision records |
-| `PROJECT_README.md` | the engineering repository's own README |
 
 **No credentials are committed.** `.env` was never committed, and the ClickHouse Cloud
 password appears in **0 files and 0 commits** — verified by scan before this folder was
