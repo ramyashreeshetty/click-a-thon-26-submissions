@@ -34,8 +34,8 @@ Live end to end: frontend on Vercel, backend on Railway, data and analysis in **
 
 ## Demo Video
 
-<!-- TODO: replace with the recorded demo video link -->
-**[YOUR_DEMO_VIDEO_URL]**
+
+**[Why Did It Move - Demo Video](https://drive.google.com/file/d/1i1uTHf-pMjqlzUEAknzawmhsvHlwdIgO/view?usp=drive_link)**
 
 ## Architecture
 
