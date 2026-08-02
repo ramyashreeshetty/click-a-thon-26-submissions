@@ -7,7 +7,11 @@ import { runInstrumentationAgent } from "./instrumentation.js";
 import { ensurePipelineLayers } from "./layers.js";
 import { pipelineStages } from "./stages.js";
 import { recordPipelineRun, recordPipelineStage } from "./tracking.js";
-import { shutdownLangfuse, startLangfuse } from "../tracing/langfuse.js";
+import {
+  publishActiveTraceIfEnabled,
+  shutdownLangfuse,
+  startLangfuse,
+} from "../tracing/langfuse.js";
 
 type RunPipelineInput = {
   specFolder: string;
@@ -186,6 +190,8 @@ export async function runPipeline(input: RunPipelineInput) {
           trace_id: rootSpan.traceId,
         },
       });
+
+      publishActiveTraceIfEnabled();
 
       console.log("");
       console.log(`Instrumentation agent finished for ${result.featureSlug}.`);

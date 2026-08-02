@@ -4,7 +4,11 @@ import { loadContextBundle } from "../context.js";
 import { writeJobRootJson } from "../instrumentation/artifacts.js";
 import { describeModelRouting } from "../models.js";
 import { recordPipelineRun } from "../tracking.js";
-import { shutdownLangfuse, startLangfuse } from "../../tracing/langfuse.js";
+import {
+  publishActiveTraceIfEnabled,
+  shutdownLangfuse,
+  startLangfuse,
+} from "../../tracing/langfuse.js";
 import { runAnalysisPlanner } from "./analysisPlanner.js";
 import { retrievePmContext } from "./contextRetriever.js";
 import { runEvidenceCritic } from "./evidenceCritic.js";
@@ -379,6 +383,7 @@ export async function runAnalyticsAsk(input: {
           });
 
           rootSpan.update({ output: runSummary });
+          publishActiveTraceIfEnabled();
           return finalAnswer;
         } catch (error) {
           // Graceful unavailable for LLM/infra failures — never crash the CLI with a stack for judges.

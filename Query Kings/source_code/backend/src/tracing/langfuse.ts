@@ -1,5 +1,6 @@
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
+import { setActiveTraceAsPublic } from "@langfuse/tracing";
 
 if (!process.env.LANGFUSE_BASE_URL && process.env.LANGFUSE_HOST) {
   process.env.LANGFUSE_BASE_URL = process.env.LANGFUSE_HOST;
@@ -36,4 +37,34 @@ export async function shutdownLangfuse() {
       `Langfuse shutdown/export failed; pipeline data was still written. Check LANGFUSE_* keys and host. ${error}`,
     );
   }
+}
+
+/**
+ * Mark the current Langfuse trace public so the URL works without login.
+ * Enabled when LANGFUSE_MAKE_TRACES_PUBLIC=1/true, or automatically when
+ * LANGFUSE_BASE_URL points at Langfuse Cloud. Opt out with =0/false.
+ */
+export function publishActiveTraceIfEnabled() {
+  if (!shouldPublishTraces()) return;
+  try {
+    setActiveTraceAsPublic();
+  } catch (error) {
+    console.warn(`Could not mark Langfuse trace public: ${error}`);
+  }
+}
+
+function shouldPublishTraces() {
+  const flag = process.env.LANGFUSE_MAKE_TRACES_PUBLIC?.trim().toLowerCase();
+  if (flag === "0" || flag === "false" || flag === "no" || flag === "off") {
+    return false;
+  }
+  if (flag === "1" || flag === "true" || flag === "yes" || flag === "on") {
+    return true;
+  }
+  const base = (
+    process.env.LANGFUSE_BASE_URL ??
+    process.env.LANGFUSE_HOST ??
+    ""
+  ).toLowerCase();
+  return base.includes("cloud.langfuse.com");
 }

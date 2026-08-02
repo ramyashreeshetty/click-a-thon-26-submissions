@@ -86,6 +86,59 @@ docker compose --profile langfuse up -d
 
 ---
 
+## ClickHouse Cloud / hosted path
+
+Use this when the warehouse is **ClickHouse Cloud** (and usually **Langfuse Cloud**) — same CLI, different `.env`. The hosted demo on Render uses this path.
+
+1. Provision ClickHouse Cloud; note HTTPS host (`:8443`) and password.
+2. One-time base load (needs ClickHouse client on your machine):
+
+```bash
+cd source_code/data
+CH='clickhouse client --host YOUR_HOST --port 9440 --user default --password YOUR_PW --secure' \
+DB=schema_kings \
+./load.sh
+```
+
+3. Point `backend/.env` at Cloud (example shape — use your real values):
+
+```bash
+GROQ_API_KEY=gsk-...
+
+CLICKHOUSE_URL=https://YOUR_HOST.clickhouse.cloud:8443
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=...
+CLICKHOUSE_DATABASE=schema_kings
+# CLICKHOUSE_NATIVE_PORT=9440   # if needed
+# unset CLICKHOUSE_DOCKER_CONTAINER for Cloud
+
+SETUP_SKIP_BASE_LOAD=1
+
+# JP region (also: https://cloud.langfuse.com EU, https://us.cloud.langfuse.com US)
+LANGFUSE_BASE_URL=https://jp.cloud.langfuse.com
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_PROJECT_ID=...
+# optional: force public trace links (auto-on for *.cloud.langfuse.com including JP)
+# LANGFUSE_MAKE_TRACES_PUBLIC=1
+```
+
+4. End-to-end against Cloud (from `source_code/backend`):
+
+```bash
+pnpm install
+pnpm cli setup
+pnpm cli run ../specs/01_express_checkout
+# … specs 02–05 …
+pnpm cli run ../specs/06_promo_coupon_checkout
+pnpm cli ask "Where are we losing conversions, and for which segments (device / geo / destination)?"
+pnpm cli serve
+```
+
+Do **not** use `./run-local.sh` for Cloud — that script starts local Docker. New runs against Cloud with Langfuse Cloud (EU / US / **JP**) mark traces **public** automatically so share URLs work without login (re-run a job to publish; old traces stay private until re-run or shared in the UI). Make sure Render’s `LANGFUSE_BASE_URL` is also `https://jp.cloud.langfuse.com` if that’s where traces live.
+
+---
+
 ## CLI cheat sheet
 
 | Command                      | Purpose                                             |
