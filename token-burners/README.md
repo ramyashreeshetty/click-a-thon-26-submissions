@@ -26,6 +26,9 @@ https://ui-three-kohl.vercel.app/
 ## Demo Video
 https://drive.google.com/drive/folders/1DuAZ9WCLrf4wyeoOlGThPrrX9fcO249x?usp=sharing
 
+## Presentation
+[Slides](https://docs.google.com/presentation/d/1wc3YEI0ZLTwMleAg4aZyfPW4xGoKoS9dgAwdCC-6lWc/edit?slide=id.p1#slide=id.p1)
+
 ## Architecture
 
 ### Ingestion (ClickPipes)
