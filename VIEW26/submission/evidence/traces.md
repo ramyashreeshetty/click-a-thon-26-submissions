@@ -2,7 +2,7 @@
 
 Project: `cmrefhio10fboad0bqqvq9xhh` on Langfuse Cloud.
 
-These links are synced and work for authenticated project members. Before the public PR, use Langfuse **Share trace** (or export) and verify every link while signed out. Public sharing is intentionally left as an owner action because changing a trace from private to public is an external disclosure decision.
+All eleven graded traces are synced and published as public Langfuse share links. They can be opened by judges without a Langfuse account or project membership.
 
 ## Feature evolution
 
