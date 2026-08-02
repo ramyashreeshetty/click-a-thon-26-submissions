@@ -199,6 +199,19 @@ type Run = {
   updated_at?: string;
 };
 
+function preferNewerRun(current: Run | undefined, incoming: Run) {
+  if (!current || current.id !== incoming.id) return incoming;
+  const currentUpdated = Date.parse(current.updated_at ?? "");
+  const incomingUpdated = Date.parse(incoming.updated_at ?? "");
+  if (Number.isFinite(currentUpdated) && Number.isFinite(incomingUpdated) && incomingUpdated < currentUpdated) return current;
+  return incoming;
+}
+
+function reconcileRuns(current: Run[], incoming: Run[]) {
+  const currentByID = new Map(current.map((item) => [item.id, item]));
+  return incoming.map((item) => preferNewerRun(currentByID.get(item.id), item));
+}
+
 type ConversationResponse = {
   resolved_question: string;
   feature_scope: string[];
@@ -1182,25 +1195,97 @@ export default function ProductWorkspace() {
   }, [chats, chatsHydrated]);
 
   useEffect(() => {
-    if (!run?.id || ["completed", "failed"].includes(run.stage)) return;
-    const source = new EventSource(`${API}/api/runs/${run.id}/events`);
-    source.addEventListener("stage", async (raw) => {
-      const event = JSON.parse((raw as MessageEvent).data) as RunEvent;
-      setEvents((current) => current.some((item) => item.stage === event.stage && item.timestamp === event.timestamp) ? current : [...current, event]);
-      const response = await fetch(`${API}/api/runs/${run.id}`);
-      if (response.ok) {
+    if (!run?.id) return;
+    const runID = run.id;
+    let disposed = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    const source = new EventSource(`${API}/api/runs/${runID}/events`);
+
+    async function refreshRun() {
+      try {
+        const response = await fetch(`${API}/api/runs/${runID}`, { cache: "no-store" });
+        if (!response.ok || disposed) return;
         const next = await response.json() as Run;
-        setRun(next);
-        setRuns((current) => [next, ...current.filter((item) => item.id !== next.id)]);
+        if (disposed) return;
+        setRun((current) => current?.id === next.id ? preferNewerRun(current, next) : current);
+        setRuns((current) => {
+          const existing = current.find((item) => item.id === next.id);
+          const newest = preferNewerRun(existing, next);
+          return [newest, ...current.filter((item) => item.id !== next.id)];
+        });
         if (next.context) {
           setContextVersion(next.context.version);
           setLatestContext(next.context);
         }
-        if (["completed", "failed"].includes(next.stage)) source.close();
-      }
+        if (["completed", "failed"].includes(next.stage)) {
+          source.close();
+          if (pollTimer) clearInterval(pollTimer);
+        }
+      } catch { /* the polling fallback will retry without discarding the last good snapshot */ }
+    }
+
+    function scheduleRefresh() {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void refreshRun(), 100);
+    }
+
+    source.addEventListener("stage", (raw) => {
+      const event = JSON.parse((raw as MessageEvent).data) as RunEvent;
+      setEvents((current) => current.some((item) => item.stage === event.stage && item.timestamp === event.timestamp) ? current : [...current, event]);
+      scheduleRefresh();
     });
-    return () => source.close();
-  }, [run?.id, run?.stage]);
+    source.onerror = () => void refreshRun();
+    pollTimer = setInterval(() => void refreshRun(), 3_000);
+    void refreshRun();
+    return () => {
+      disposed = true;
+      source.close();
+      if (refreshTimer) clearTimeout(refreshTimer);
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [run?.id]);
+
+  // Reconcile the complete control-plane snapshot while the Inbox is open.
+  // This keeps approvals and recommendations current even if an SSE connection
+  // is interrupted by a deploy, laptop sleep, proxy timeout, or tab suspension.
+  useEffect(() => {
+    if (view !== "decisions") return;
+    let disposed = false;
+    let refreshing = false;
+    async function refreshDecisionInbox() {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const [runsResponse, contextResponse] = await Promise.all([
+          fetch(`${API}/api/runs`, { cache: "no-store" }),
+          fetch(`${API}/api/context/latest`, { cache: "no-store" }),
+        ]);
+        if (disposed || !runsResponse.ok || !contextResponse.ok) return;
+        const recent = await runsResponse.json() as { runs?: Run[] };
+        const context = await contextResponse.json() as NonNullable<Run["context"]>;
+        if (disposed) return;
+        const nextRuns = recent.runs ?? [];
+        setRuns((current) => reconcileRuns(current, nextRuns));
+        setRun((current) => {
+          if (!current) return current;
+          const next = nextRuns.find((item) => item.id === current.id);
+          return next ? preferNewerRun(current, next) : current;
+        });
+        setContextVersion(context.version ?? 0);
+        setLatestContext(context);
+        setConnected(true);
+      } catch { /* keep the last good Inbox snapshot and retry */ } finally {
+        refreshing = false;
+      }
+    }
+    void refreshDecisionInbox();
+    const timer = setInterval(() => void refreshDecisionInbox(), 5_000);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+    };
+  }, [view]);
 
   useEffect(() => {
     if (conversation.length || chatBusy) endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
