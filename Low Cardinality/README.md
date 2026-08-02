@@ -56,8 +56,22 @@ below covers everything a hosted link would have shown, end to end and in one ta
 ## Demo Video
 
 **[`demo.mp4`](demo.mp4)** — 2m54s, end to end against the unseen release: a quiet day, the
-release pointed at the system from the console, the drill-down, the diagnosis, the trace in
-HyperDX, and a follow-up question answered in chat over the same tables.
+release pointed at the system from the console, the drill-down, the diagnosis, the trace, and a
+follow-up question answered in chat over the same tables.
+
+Stills, for reading without playing it: **[`artifacts/screenshots/`](artifacts/screenshots)** —
+the [board](artifacts/screenshots/01-board.png), a
+[verdict and its trace](artifacts/screenshots/02-verdict-trace.png), the
+[narrative](artifacts/screenshots/03-narrative.png), the
+[evidence ledger](artifacts/screenshots/04-evidence.png) with every cleared candidate and the
+reason it was cleared, [Verdict.AI querying over MCP](artifacts/screenshots/05-verdict-ai-mcp.png),
+and [recommendations](artifacts/screenshots/06-recommendations.png).
+
+![The board](artifacts/screenshots/01-board.png)
+
+![A verdict and its trace](artifacts/screenshots/02-verdict-trace.png)
+
+![The evidence ledger](artifacts/screenshots/04-evidence.png)
 
 ## The unseen incident bundle
 
@@ -197,9 +211,16 @@ data, so a span and the rows it was computed from are one join apart. The collec
 configured inline in `docker-compose.yml` (`clickhouse/clickstack-otel-collector`), and the
 engine exports to it over OTLP via `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
-Both are shown live in [`demo.mp4`](demo.mp4): the HyperDX span tree for the iOS 17.5 verdict,
-reached through the console's deep link with the window pre-filtered, and Verdict.AI answering a
-follow-up by running SQL through the MCP server against the same tables the verdict came from.
+Verdict.AI is shown working in [`demo.mp4`](demo.mp4) and in
+[`artifacts/screenshots/05-verdict-ai-mcp.png`](artifacts/screenshots/05-verdict-ai-mcp.png):
+a follow-up question answered by running SQL through the MCP server against the same tables the
+verdict came from, with the query and its result shown rather than summarised.
+
+HyperDX is not captured in either, because it is a hosted service behind a ClickHouse Cloud login
+and a screenshot of our tenant is not something a reader can reproduce. The wiring is checkable
+without us: `trace_id` is stored on every case, the deep link is built in `web/lib/links.ts`, and
+`SELECT count() FROM default.otel_traces` against the service will show the spans. Following the
+HyperDX button in any case header opens that case's span tree with the window pre-filtered.
 
 ### LLM provider
 
