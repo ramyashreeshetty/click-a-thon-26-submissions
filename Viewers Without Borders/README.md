@@ -138,6 +138,52 @@ ClickStack is not decoration here; it is the serving and observability surface.
   (`otel_metrics_gauge` / `otel_logs` / `otel_traces`), because the Cloud service exposes
   no OTLP endpoint. A reader would reasonably assume one destination; it is two.
 
+### The ClickHouse query behind the curve
+
+The curve is the **hour-partitioned running sum of signed minute deltas**. This is the whole
+concurrency model in one statement — 1,440 minute buckets for the unseen day, from a table of
+139,925 rows:
+
+```sql
+WITH series AS
+(
+    SELECT minute,
+           toInt64(sum(d) OVER (PARTITION BY toStartOfHour(minute) ORDER BY minute
+                                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)) AS concurrent
+    FROM
+    (
+        SELECT minute, sum(delta) AS d
+        FROM cc_minute_delta
+        WHERE minute >= '2026-07-31 00:00:00' AND minute < '2026-08-01 00:00:00'
+        GROUP BY minute
+        ORDER BY minute
+          WITH FILL FROM toDateTime('2026-07-31 00:00:00')
+                     TO toDateTime('2026-08-01 00:00:00') STEP toIntervalSecond(60)
+    )
+)
+SELECT max(concurrent)                                        AS peak,
+       argMax(minute, (concurrent, -toInt64(toUInt32(minute)))) AS peak_minute,
+       sum(concurrent) * 60                                   AS integral,
+       round(sum(concurrent) * 60 / 86400, 4)                  AS avg_concurrent
+FROM series
+```
+
+**Three details that are load-bearing, not incidental:**
+
+- **`PARTITION BY toStartOfHour(minute)`** is why this is fast and why it is *correct at any
+  range*. Deltas are hour-clipped at write time, so each hour's running sum starts from zero and
+  is absolute — the query reads one hour of deltas per hour displayed, never the history before it.
+- **`WITH FILL` on the *delta*, inside the subquery, never on the level.** `cc_minute_delta` stores
+  only change points, so a minute with no row means "no change", not "no viewers". Filling the
+  delta with 0 densifies correctly; filling the *level* with `INTERPOLATE` would invent viewers
+  across an hour boundary.
+- **`argMax(minute, (concurrent, -minute))`** breaks peak ties toward the **earliest** minute, so
+  the reported peak minute is deterministic rather than dependent on scan order.
+
+The filtered variants, the hour and day grains, the user tier and the cross-checks are all in
+[`evidence/submission/queries/`](evidence/submission/queries/) — 27 queries, each with the
+`query_id` that produced its numbers.
+
 ### ClickStack, captured
 
 **Eleven dashboards, deployed as code** from [`tools/clickstack-cloud.sh`](tools/clickstack-cloud.sh)
