@@ -12,7 +12,9 @@
 
 ---
 
-## Demo [Link](https://drive.google.com/file/d/1tIQirJLPT-ENii_bnoLiiXF-9hzAAnSK/view?ts=6a6edde2)
+## Videos
+- **Working Demo** - [Link](https://drive.google.com/file/d/1tIQirJLPT-ENii_bnoLiiXF-9hzAAnSK/view?ts=6a6edde2)
+- **Architecture Overview** - [Link](https://github.com/deepesh17feb/click-a-thon-26-submissions/blob/main/SurferAI/Arch1.mov)
 
 
 ## 🌐 Hosted Demo & Unified Web Interface
