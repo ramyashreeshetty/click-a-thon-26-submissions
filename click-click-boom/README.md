@@ -9,6 +9,7 @@ Click Click Boom
 ## Team Members
 - Ansh Mehta (anshmehtamm)
 - Adarsh Gupta (travellerR)
+- Nived Suresan (nivedsuresan)
 
 ## What it does
 Three agents on ClickHouse that collapse the "new feature → instrumented → analyzed"
@@ -30,10 +31,10 @@ All three run through the **Agents API**, fully traced end to end in
 Langfuse, with a Next.js dashboard for live and historical visualization.
 
 ## Hosted Demo
-TODO: link to a live, hosted demo (mandatory).
+Trouble hosting demo link (can add in 1 hour)
 
 ## Demo Video
-TODO: link to a recorded 2–3 minute demo video (mandatory).
+https://drive.google.com/file/d/1HRMx3bEWPrwj2IUYYV8otKx7fDoLZ0Bi/view?usp=sharing
 
 ## Architecture
 See `ARCHITECTURE.md` (and `architecture.html`) in this folder for the full
