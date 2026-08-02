@@ -59,6 +59,10 @@ below covers everything a hosted link would have shown, end to end and in one ta
 release pointed at the system from the console, the drill-down, the diagnosis, the trace, and a
 follow-up question answered in chat over the same tables.
 
+**[`demo_1.mp4`](demo_1.mp4)** — 3m30s, a walkthrough of the architecture: how a release becomes
+counter rollups, what the detectors and the cross-examination actually do, and where the model is
+and is not allowed to speak.
+
 Stills, for reading without playing it: **[`artifacts/screenshots/`](artifacts/screenshots)** —
 the [board](artifacts/screenshots/01-board.png), a
 [verdict and its trace](artifacts/screenshots/02-verdict-trace.png), the
