@@ -63,6 +63,12 @@ Nothing on it is a mock — every number is read back out of ClickHouse or Langf
 _Also available as a standalone file: [docs/architecture.md](docs/architecture.md) /
 [docs/architecture.png](docs/architecture.png)._
 
+**Data lineage, and exactly where the AI layer sits versus where a human designed the logic:**
+[docs/data-lineage-and-human-intelligence.md](docs/data-lineage-and-human-intelligence.md). Short
+version — the model touches nothing upstream of a fully-verified result object, and every threshold,
+formula and classification rule in this system is deterministic code a person wrote, not a model's
+judgment call.
+
 ### Where the analysis runs
 
 **In ClickHouse. The LLM never writes SQL and cannot.**
@@ -157,9 +163,13 @@ All three, and none of them decoratively.
   access.
 - **LibreChat** — the chat client, talking to the MCP server over streamable HTTP. Identity flows
   through as `{{LIBRECHAT_USER_ID}}` / `{{LIBRECHAT_USER_EMAIL}}` headers, so a watch belongs to a
-  person. The Alerts tab deep-links into a pre-filled chat for follow-ups. Config committed at
-  [`frontend/LibreChat/librechat.yaml`](frontend/LibreChat/librechat.yaml) (keys are environment
-  variable references, nothing literal to redact).
+  person. The Alerts tab deep-links into a pre-filled chat for follow-ups. LibreChat itself is a
+  standard install of the upstream project, not something we wrote — what we authored is the wiring,
+  committed at [`frontend/LibreChat/librechat.yaml`](frontend/LibreChat/librechat.yaml) (keys are
+  environment variable references, nothing literal to redact). The rest of LibreChat's own source is
+  intentionally not vendored into this repo (see `.gitignore`) — it's the same public project anyone
+  can `git clone`, and shipping its ~3,700 files here just bloated every diff without adding anything
+  ours.
 
 ### LLM provider
 
