@@ -211,6 +211,7 @@ type Insight struct {
 	Why               string            `json:"why"`
 	Confidence        float64           `json:"confidence"`
 	RecommendedAction string            `json:"recommended_action"`
+	KeyFindings       []KeyFinding      `json:"key_findings,omitempty"`
 	Evidence          map[string]any    `json:"evidence"`
 	SQL               string            `json:"sql"`
 	ContextVersion    int               `json:"context_version"`
@@ -218,6 +219,18 @@ type Insight struct {
 	TraceID           string            `json:"trace_id,omitempty"`
 	Provenance        InsightProvenance `json:"provenance"`
 	Trace             *AnalysisTrace    `json:"trace,omitempty"`
+}
+
+// KeyFinding is one ranked observation inside an insight: what was seen, why it
+// matters to the PM, and the evidence anchor it is grounded in. An insight
+// answering an open analytical question ("surface the most important issues")
+// carries several of these so the answer reads as a prioritized list, not a
+// single headline.
+type KeyFinding struct {
+	Point    string `json:"point"`              // the observation, quantified from evidence
+	Why      string `json:"why"`                // why this specific finding matters to the PM
+	Evidence string `json:"evidence,omitempty"` // the metric/segment/stage it is grounded in
+	Severity string `json:"severity,omitempty"` // high | medium | low, for ordering and emphasis
 }
 
 type AnalysisTrace struct {

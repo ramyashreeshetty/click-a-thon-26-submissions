@@ -439,7 +439,7 @@ func simulationFunnel(profile domain.EventProfile, plan featureDashboardPlan, tr
 }
 
 func dashboardPlanFor(input domain.FeatureInput, profile domain.EventProfile) featureDashboardPlan {
-	plan := featureDashboardPlan{Playbook: "dashboard:feature-funnel:v1", Grain: analysisGrain(profile), Stages: inferredGenericFunnelStages(profile)}
+	plan := featureDashboardPlan{Playbook: "dashboard:feature-funnel:v1", Grain: analysisGrain(profile), Stages: append([]string{}, profile.EventOrder...)}
 	slug := Slug(input.Slug)
 	if slug == "" {
 		slug = Slug(input.Name)
@@ -464,38 +464,13 @@ func dashboardPlanFor(input domain.FeatureInput, profile domain.EventProfile) fe
 		plan.Stages = presentEvents(profile, "forex_offer_shown", "currency_selected", "forex_added_to_cart", "forex_purchased")
 	}
 	if len(plan.Stages) < 2 {
-		plan.Stages = inferredGenericFunnelStages(profile)
+		plan.Stages = append([]string{}, profile.EventOrder...)
 	}
 	if len(plan.Stages) < 2 {
 		first, last := funnelBounds(profile)
 		plan.Stages = []string{first, last}
 	}
 	return plan
-}
-
-// inferredGenericFunnelStages keeps an unseen feature's main success path from
-// treating failure branches such as rejected/cancelled events as completion.
-// Known feature plans still override this inference with their explicit
-// semantic funnels.
-func inferredGenericFunnelStages(profile domain.EventProfile) []string {
-	stages := make([]string, 0, len(profile.EventOrder))
-	for _, event := range profile.EventOrder {
-		lower := strings.ToLower(event)
-		branch := false
-		for _, token := range []string{"reject", "failed", "failure", "error", "cancel", "declined", "removed"} {
-			if strings.Contains(lower, token) {
-				branch = true
-				break
-			}
-		}
-		if !branch {
-			stages = append(stages, event)
-		}
-	}
-	if len(stages) >= 2 {
-		return stages
-	}
-	return append([]string{}, profile.EventOrder...)
 }
 
 func presentEvents(profile domain.EventProfile, candidates ...string) []string {
@@ -540,14 +515,7 @@ func formatCount(value float64) string {
 func formatPercent(value float64) string { return fmt.Sprintf("%.1f%%", value*100) }
 
 func formatPercentagePoints(value float64) string {
-	points := value * 100
-	if points > 0 {
-		return fmt.Sprintf("↑ %.1f points", points)
-	}
-	if points < 0 {
-		return fmt.Sprintf("↓ %.1f points", math.Abs(points))
-	}
-	return "0.0 points"
+	return fmt.Sprintf("%+.1f pp", value*100)
 }
 
 func signedDirection(value float64) string {

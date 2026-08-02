@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 export type ContextGraphNode = { key: string; type: string; name: string; status: string; confidence: number };
 export type ContextGraphEdge = { from: string; relation: string; to: string };
 
@@ -235,24 +239,24 @@ export default function ContextGraph({ nodes, edges }: { nodes: ContextGraphNode
     : [];
 
   return (
-    <section className="fl-context-graph">
-      <div className="fl-block-title">
-        <span>Context graph</span>
-        <div className="fl-graph-tools">
-          <b>{visibleKeys.size} nodes · {visibleEdges.length} edges</b>
-          <button onClick={() => setBox(layout.fit)}>Fit view</button>
+    <Card className="gap-3 py-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4">
+        <span className="text-sm font-semibold">Context graph</span>
+        <div className="flex items-center gap-3">
+          <b className="text-xs font-normal text-muted-foreground">{visibleKeys.size} nodes · {visibleEdges.length} edges</b>
+          <Button variant="outline" size="sm" onClick={() => setBox(layout.fit)}>Fit view</Button>
         </div>
       </div>
-      <div className="fl-graph-legend">
+      <div className="flex flex-wrap gap-1.5 px-4">
         {Object.entries(typeCounts).map(([type, count]) => (
-          <button key={type} className={hiddenTypes.has(type) ? "off" : ""} onClick={() => toggleType(type)}>
-            <i style={{ background: typeColor(type) }} />
+          <button key={type} className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors hover:bg-accent", hiddenTypes.has(type) && "opacity-40 line-through")} onClick={() => toggleType(type)}>
+            <i className="size-2.5 rounded-[3px]" style={{ background: typeColor(type) }} />
             {type.replaceAll("_", " ")}
-            <b>{count}</b>
+            <b className="font-semibold text-muted-foreground">{count}</b>
           </button>
         ))}
       </div>
-      <div className="fl-graph-body">
+      <div className="relative mx-4 rounded-lg border bg-muted/30 [&_svg]:block [&_svg]:h-[420px] [&_svg]:w-full [&_svg]:cursor-grab [&_svg]:touch-none active:[&_svg]:cursor-grabbing">
         <svg
           ref={svgRef}
           viewBox={box ? `${box.x} ${box.y} ${box.w} ${box.h}` : undefined}
@@ -265,7 +269,7 @@ export default function ContextGraph({ nodes, edges }: { nodes: ContextGraphNode
         >
           <defs>
             <marker id="fl-graph-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-              <path d="M0,0.6 L7.4,4 L0,7.4 Z" fill="#384f73" />
+              <path d="M0,0.6 L7.4,4 L0,7.4 Z" fill="var(--foreground)" />
             </marker>
           </defs>
           {visibleEdges.map((edge, i) => {
@@ -287,13 +291,13 @@ export default function ContextGraph({ nodes, edges }: { nodes: ContextGraphNode
               <g key={`${edge.from}-${edge.relation}-${edge.to}-${i}`}>
                 <line
                   x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke={highlighted ? "#384f73" : "#b4bccb"}
+                  stroke={highlighted ? "var(--foreground)" : "var(--border)"}
                   strokeWidth={highlighted ? 1.2 : 0.7}
                   opacity={dimmed ? 0.1 : highlighted ? 0.95 : 0.55}
                   markerEnd={highlighted ? "url(#fl-graph-arrow)" : undefined}
                 />
                 {highlighted && (
-                  <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 1.6} className="fl-graph-relation" textAnchor="middle">
+                  <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 1.6} fill="var(--muted-foreground)" fontSize={3.4} textAnchor="middle">
                     {edge.relation.replaceAll("_", " ").toLowerCase()}
                   </text>
                 )}
@@ -313,7 +317,7 @@ export default function ContextGraph({ nodes, edges }: { nodes: ContextGraphNode
             return (
               <g
                 key={node.key}
-                className="fl-graph-node"
+                className="cursor-pointer"
                 opacity={dimmed ? 0.16 : 1}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={() => setSelectedKey((prev) => (prev === node.key ? null : node.key))}
@@ -325,12 +329,12 @@ export default function ContextGraph({ nodes, edges }: { nodes: ContextGraphNode
                   cy={layout.y[i]}
                   r={r}
                   fill={typeColor(node.type)}
-                  stroke={contradicted ? "#c9372c" : "#ffffff"}
+                  stroke={contradicted ? "var(--destructive)" : "var(--card)"}
                   strokeWidth={contradicted ? 1.6 : node.status === "verified" ? 1.4 : 1}
                   strokeDasharray={dashed ? "2.4 1.7" : undefined}
                   strokeOpacity={node.status === "declared" ? 0.55 : 1}
                 />
-                <text x={layout.x[i]} y={layout.y[i] + r + 5.4} className="fl-graph-label" textAnchor="middle" opacity={selected && !isSelected && !isNeighbor ? 0.4 : 0.9}>
+                <text x={layout.x[i]} y={layout.y[i] + r + 5.4} fill="var(--foreground)" fontSize={3.6} textAnchor="middle" opacity={selected && !isSelected && !isNeighbor ? 0.4 : 0.9}>
                   {node.name.length > 26 ? `${node.name.slice(0, 25)}…` : node.name}
                 </text>
               </g>
@@ -338,29 +342,29 @@ export default function ContextGraph({ nodes, edges }: { nodes: ContextGraphNode
           })}
         </svg>
         {selected && (
-          <aside className="fl-graph-panel">
-            <span style={{ background: typeColor(selected.type) }}>{selected.type.replaceAll("_", " ")}</span>
-            <h3>{selected.name}</h3>
-            <code>{selected.key}</code>
-            <div className="fl-graph-panel-facts">
-              <div><small>Status</small><strong className={selected.status}>{selected.status}</strong></div>
-              <div><small>Confidence</small><strong>{Math.round(selected.confidence * 100)}%</strong></div>
-              <div><small>Connections</small><strong>{selectedConnections.length}</strong></div>
+          <aside className="absolute top-3 right-3 w-64 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-lg border bg-popover text-popover-foreground p-3 shadow-md">
+            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium text-white" style={{ background: typeColor(selected.type) }}>{selected.type.replaceAll("_", " ")}</span>
+            <h3 className="mt-2 text-sm font-semibold leading-tight">{selected.name}</h3>
+            <code className="mt-1 block text-[11px] text-muted-foreground break-all">{selected.key}</code>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div><small className="block text-[10px] uppercase tracking-wide text-muted-foreground">Status</small><strong className="text-xs capitalize">{selected.status}</strong></div>
+              <div><small className="block text-[10px] uppercase tracking-wide text-muted-foreground">Confidence</small><strong className="text-xs">{Math.round(selected.confidence * 100)}%</strong></div>
+              <div><small className="block text-[10px] uppercase tracking-wide text-muted-foreground">Links</small><strong className="text-xs">{selectedConnections.length}</strong></div>
             </div>
-            <p>Relationships</p>
-            <div className="fl-graph-panel-links">
+            <p className="mt-3 text-xs font-medium text-muted-foreground">Relationships</p>
+            <div className="mt-1.5 flex flex-col gap-1">
               {selectedConnections.map((connection, i) => (
-                <button key={`${connection.relation}-${connection.other!.key}-${i}`} onClick={() => setSelectedKey(connection.other!.key)}>
-                  <small>{connection.outbound ? "→" : "←"} {connection.relation.replaceAll("_", " ").toLowerCase()}</small>
-                  <strong><i style={{ background: typeColor(connection.other!.type) }} />{connection.other!.name}</strong>
+                <button key={`${connection.relation}-${connection.other!.key}-${i}`} className="rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-accent" onClick={() => setSelectedKey(connection.other!.key)}>
+                  <small className="block text-[10px] text-muted-foreground">{connection.outbound ? "→" : "←"} {connection.relation.replaceAll("_", " ").toLowerCase()}</small>
+                  <strong className="mt-0.5 flex items-center gap-1.5 text-xs font-medium"><i className="size-2 rounded-[2px] shrink-0" style={{ background: typeColor(connection.other!.type) }} />{connection.other!.name}</strong>
                 </button>
               ))}
             </div>
-            <button className="fl-graph-panel-close" onClick={() => setSelectedKey(null)}>Clear selection</button>
+            <Button variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setSelectedKey(null)}>Clear selection</Button>
           </aside>
         )}
       </div>
-      <p className="fl-graph-hint">Scroll to zoom · drag to pan · click a node to inspect its relationships · click a legend chip to filter a type</p>
-    </section>
+      <p className="px-4 text-xs text-muted-foreground">Scroll to zoom · drag to pan · click a node to inspect its relationships · click a legend chip to filter a type</p>
+    </Card>
   );
 }

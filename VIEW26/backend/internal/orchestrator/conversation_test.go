@@ -156,12 +156,51 @@ func TestDashboardModeSurfacesBundleChartsAndKPIs(t *testing.T) {
 		t.Fatalf("dashboard mode should surface KPI widgets")
 	}
 
+	// Single mode leads with the intent-matched chart (the funnel, for a
+	// drop-off question) then appends the feature's other curated charts as
+	// supporting context so the answer tells a coherent story.
 	single := buildConversationCharts("Where is the largest funnel loss?", "single", results, "trace-single")
-	if len(single) != 1 || single[0].Type != "funnel" {
-		t.Fatalf("single mode should return exactly one funnel chart, got %#v", single)
+	if len(single) == 0 || single[0].Type != "funnel" {
+		t.Fatalf("single mode should lead with the funnel chart, got %#v", single)
+	}
+	if len(single) != 3 {
+		t.Fatalf("single mode should append supporting context charts, got %d", len(single))
 	}
 	if kpis := conversationKPIs("single", results); kpis != nil {
 		t.Fatalf("single mode should not surface KPI widgets, got %#v", kpis)
+	}
+}
+
+func TestDeriveKeyFindingsGroundsInEvidence(t *testing.T) {
+	evidence := map[string]any{
+		"completion_rate": .48,
+		"entrants":        1000.0,
+		"stages": []map[string]any{
+			{"stage": "shown", "entities": 1000.0},
+			{"stage": "otp_sent", "entities": 900.0},
+			{"stage": "completed", "entities": 480.0},
+		},
+		"segments": []map[string]any{
+			{"dimension": "device", "segment": "ios", "completion_rate": .62},
+			{"dimension": "device", "segment": "android", "completion_rate": .34},
+		},
+	}
+	findings := deriveKeyFindings("Express Checkout", evidence)
+	if len(findings) != 3 {
+		t.Fatalf("expected funnel, segment, and completion findings, got %d: %#v", len(findings), findings)
+	}
+	// Largest drop is otp_sent -> completed (900 -> 480, ~47%), ranked first and high severity.
+	if !strings.Contains(findings[0].Point, "completed") || findings[0].Severity != "high" {
+		t.Fatalf("first finding should be the largest funnel drop at high severity: %#v", findings[0])
+	}
+	// The device gap (62% vs 34% = 28pp) should be flagged high and name both cohorts.
+	if !strings.Contains(findings[1].Point, "android") || !strings.Contains(findings[1].Point, "ios") || findings[1].Severity != "high" {
+		t.Fatalf("second finding should be the device segment gap: %#v", findings[1])
+	}
+	for _, finding := range findings {
+		if strings.TrimSpace(finding.Why) == "" || strings.TrimSpace(finding.Evidence) == "" {
+			t.Fatalf("every finding must carry a why and an evidence anchor: %#v", finding)
+		}
 	}
 }
 

@@ -309,6 +309,9 @@ func (a AnalyticsAgent) synthesize(ctx context.Context, contract domain.Analysis
 	insight.Why = synthesis.Why
 	insight.Confidence = math.Min(insight.Confidence, synthesis.Confidence)
 	insight.RecommendedAction = synthesis.RecommendedAction
+	if len(synthesis.KeyFindings) > 0 {
+		insight.KeyFindings = synthesis.KeyFindings
+	}
 	metadata.Generator = "llm"
 	metadata.Status = "generated"
 	insight.Provenance = metadata
@@ -486,7 +489,7 @@ func ClassifyIntent(question string) string {
 		return "latency_performance"
 	case strings.Contains(lower, "adopt") || strings.Contains(lower, "which segment") || strings.Contains(lower, "use most"):
 		return "feature_adoption"
-	case strings.Contains(lower, "lift") || strings.Contains(lower, "vs standard") || strings.Contains(lower, "impact") || strings.Contains(lower, "conversion") || strings.Contains(lower, "convert"):
+	case strings.Contains(lower, "lift") || strings.Contains(lower, "vs standard") || strings.Contains(lower, "impact") || strings.Contains(lower, "conversion"):
 		return "conversion_comparison"
 	case strings.Contains(lower, "drop") || strings.Contains(lower, "abandon"):
 		return "funnel_diagnosis"
@@ -591,20 +594,9 @@ func interpretPlan(plan analysisPlan, featureName string, rows []map[string]any,
 		featureRate := number(rows[0]["feature_completion_rate"])
 		standardRate := number(rows[0]["standard_conversion_rate"])
 		lift := number(rows[0]["percentage_point_lift"])
-		direction := "above"
-		if lift < 0 {
-			direction = "below"
-		}
-		comparisonLabel := "the comparable standard checkout cohort"
-		if plan.ID == "playbook:nullable-cohort-conversion:v1" {
-			comparisonLabel = "the null-marker baseline cohort"
-			insight.Summary = fmt.Sprintf("The marked cohort completes at %.2f%% versus %.2f%% for entities where the governed cohort marker is null.", featureRate*100, standardRate*100)
-			insight.Why = "ClickHouse assigned each entity to a marked or null-marker cohort from the verified nullable field, then compared completion on the same semantic funnel. The marker is user-selected rather than randomized, so the comparison is observational rather than causal."
-		} else {
-			insight.Summary = fmt.Sprintf("Feature completion is %.2f%% versus %.2f%% for standard checkout in the aligned observation window.", featureRate*100, standardRate*100)
-			insight.Why = "ClickHouse compared unique application cohorts over aligned calendar dates and allowed one additional day for standard purchase completion. Date-level alignment avoids false precision while source timestamp timezone provenance remains unresolved; the comparison is observational rather than causal."
-		}
-		insight.Headline = fmt.Sprintf("%s is %.2f percentage points %s %s", featureName, math.Abs(lift*100), direction, comparisonLabel)
+		insight.Headline = fmt.Sprintf("%s is %.2f pp above the comparable standard checkout cohort", featureName, lift*100)
+		insight.Summary = fmt.Sprintf("Feature completion is %.2f%% versus %.2f%% for standard checkout in the aligned observation window.", featureRate*100, standardRate*100)
+		insight.Why = "ClickHouse compared unique application cohorts over aligned calendar dates and allowed one additional day for standard purchase completion. Date-level alignment avoids false precision while source timestamp timezone provenance remains unresolved; the comparison is observational rather than causal."
 		insight.Confidence = .86
 		insight.RecommendedAction = "Validate the difference with an experiment or matched cohort before treating it as incremental lift."
 	case "platform_failure":

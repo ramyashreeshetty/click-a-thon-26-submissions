@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 export type AnalyticsPoint = { label: string; value: number; sample_size?: number };
 export type AnalyticsSeries = { key: string; label: string; points: AnalyticsPoint[] };
 export type AnalyticsChart = {
@@ -18,8 +21,8 @@ export type AnalyticsChart = {
 
 // Categorical slots and the funnel's ordinal blue ramp are validated with the dataviz
 // palette checker against the white card surface — keep order fixed, never cycle.
-const SERIES_SLOTS = ["#0c66e4", "#1f845a", "#e87ba4", "#eda100", "#6554c0", "#eb6834"];
-const FUNNEL_RAMP = ["#85b8ff", "#579dff", "#1d7afc", "#0055cc", "#09326c"];
+const SERIES_SLOTS = ["#6d4bf5", "#1f9d6b", "#3b82f6", "#e8459b", "#eda100", "#eb6834"];
+const FUNNEL_RAMP = ["#b8a7fb", "#9575f7", "#7c53f3", "#6d4bf5", "#4b2fc0"];
 const DIM_SERIES = "#c6c3d1";
 
 const seriesColor = (index: number) => SERIES_SLOTS[index] ?? DIM_SERIES;
@@ -90,29 +93,33 @@ const displayLabel = (label: string) => label.replaceAll("_", " ");
 type TipRow = { color?: string; value: string; label: string };
 
 function TipBox({ title, rows }: { title: string; rows: TipRow[] }) {
-  return <div className="flc-tooltip">
-    <span className="flc-tooltip-title">{title}</span>
-    {rows.map((row) => <div key={`${row.label}-${row.value}`} className="flc-tooltip-row">
-      {row.color ? <i style={{ background: row.color }} /> : null}
-      <b>{row.value}</b>
-      <span>{row.label}</span>
+  return <div className="rounded-md border bg-popover text-popover-foreground px-3 py-2 shadow-md text-xs">
+    <span className="block font-medium mb-1">{title}</span>
+    {rows.map((row) => <div key={`${row.label}-${row.value}`} className="flex items-center gap-2 py-0.5">
+      {row.color ? <i className="size-2 rounded-[2px] shrink-0" style={{ background: row.color }} /> : null}
+      <b className="font-semibold tabular-nums">{row.value}</b>
+      <span className="text-muted-foreground">{row.label}</span>
     </div>)}
   </div>;
 }
 
 function DataTable({ chart }: { chart: AnalyticsChart }) {
   const showSamples = chart.series.some((series) => series.points.some((point) => point.sample_size));
-  return <details className="flc-table">
-    <summary>View data table</summary>
-    <table>
-      <thead><tr>{chart.series.length > 1 && <th scope="col">Series</th>}<th scope="col">Label</th><th scope="col">{chart.unit === "%" ? "Value (%)" : `Value${chart.unit ? ` (${chart.unit})` : ""}`}</th>{showSamples && <th scope="col">Sample</th>}</tr></thead>
-      <tbody>{chart.series.flatMap((series) => series.points.map((point) => <tr key={`${series.key}-${point.label}`}>
-        {chart.series.length > 1 && <td>{series.label}</td>}
-        <td>{displayLabel(point.label)}</td>
-        <td>{formatValue(point.value, chart.unit)}</td>
-        {showSamples && <td>{point.sample_size ? Math.round(point.sample_size).toLocaleString() : "—"}</td>}
-      </tr>))}</tbody>
-    </table>
+  return <details className="group mt-2 text-xs">
+    <summary className="cursor-pointer select-none text-muted-foreground hover:text-foreground transition-colors list-none [&::-webkit-details-marker]:hidden">
+      <span className="inline-flex items-center gap-1"><span className="transition-transform group-open:rotate-90">›</span> View data table</span>
+    </summary>
+    <div className="mt-2 overflow-x-auto rounded-md border">
+      <table className="w-full text-left [&_th]:px-3 [&_th]:py-2 [&_th]:font-medium [&_th]:text-muted-foreground [&_td]:px-3 [&_td]:py-1.5 [&_td]:border-t [&_td]:tabular-nums">
+        <thead><tr className="border-b">{chart.series.length > 1 && <th scope="col">Series</th>}<th scope="col">Label</th><th scope="col">{chart.unit === "%" ? "Value (%)" : `Value${chart.unit ? ` (${chart.unit})` : ""}`}</th>{showSamples && <th scope="col">Sample</th>}</tr></thead>
+        <tbody>{chart.series.flatMap((series) => series.points.map((point) => <tr key={`${series.key}-${point.label}`}>
+          {chart.series.length > 1 && <td>{series.label}</td>}
+          <td>{displayLabel(point.label)}</td>
+          <td>{formatValue(point.value, chart.unit)}</td>
+          {showSamples && <td>{point.sample_size ? Math.round(point.sample_size).toLocaleString() : "—"}</td>}
+        </tr>))}</tbody>
+      </table>
+    </div>
   </details>;
 }
 
@@ -155,17 +162,17 @@ function TrendChart({ chart }: { chart: AnalyticsChart }) {
   const endLabel = (props: unknown) => {
     const { x, y, value, index } = props as { x?: number; y?: number; value?: number; index?: number };
     if (index !== rows.length - 1 || typeof value !== "number" || x === undefined || y === undefined) return null;
-    return <text x={x} y={Math.max(11, y - 10)} textAnchor="end" className="flc-endlabel">{formatValue(value, chart.unit)}</text>;
+    return <text x={x} y={Math.max(11, y - 10)} textAnchor="end" fill="var(--foreground)" fontSize={11} fontWeight={600}>{formatValue(value, chart.unit)}</text>;
   };
 
-  return <div className="flc-plot">
-    {!single && <div className="flc-legend" role="list">{prepared.map((item, index) => <button key={item.series.key} role="listitem" className={emphasis && emphasis !== item.series.key ? "dim" : ""} onClick={() => setEmphasis(emphasis === item.series.key ? null : item.series.key)}><i style={{ background: seriesColor(index) }} /><span>{item.series.label}</span></button>)}</div>}
+  return <div className="text-foreground">
+    {!single && <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-2" role="list">{prepared.map((item, index) => <button key={item.series.key} role="listitem" className={cn("inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-opacity", emphasis && emphasis !== item.series.key && "opacity-40")} onClick={() => setEmphasis(emphasis === item.series.key ? null : item.series.key)}><i className="size-2.5 rounded-[3px]" style={{ background: seriesColor(index) }} /><span>{item.series.label}</span></button>)}</div>}
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={rows} margin={{ top: 16, right: 14, bottom: 0, left: 0 }} accessibilityLayer>
-        <CartesianGrid vertical={false} stroke="#eceaf3" />
-        <XAxis dataKey="label" tickFormatter={(value: string) => trendPointLabel(value, granularity)} minTickGap={48} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "#d9d6e4" }} tick={{ fill: "#898781", fontSize: 11 }} tickMargin={8} />
-        <YAxis domain={[0, top]} ticks={ticks} tickFormatter={(value: number) => formatTick(value, chart.unit)} axisLine={false} tickLine={false} tick={{ fill: "#898781", fontSize: 11 }} width={yAxisWidth} />
-        <Tooltip content={renderTip} cursor={{ stroke: "#b9b5c9", strokeWidth: 1 }} isAnimationActive={false} />
+        <CartesianGrid vertical={false} stroke="var(--border)" />
+        <XAxis dataKey="label" tickFormatter={(value: string) => trendPointLabel(value, granularity)} minTickGap={48} interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "var(--border)" }} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickMargin={8} />
+        <YAxis domain={[0, top]} ticks={ticks} tickFormatter={(value: number) => formatTick(value, chart.unit)} axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} width={yAxisWidth} />
+        <Tooltip content={renderTip} cursor={{ stroke: "var(--border)", strokeWidth: 1 }} isAnimationActive={false} />
         {single
           ? <Area dataKey={prepared[0].series.key} stroke={seriesColor(0)} strokeWidth={2} strokeLinecap="round" fill={seriesColor(0)} fillOpacity={0.1} dot={false} activeDot={{ r: 4.5, stroke: "#ffffff", strokeWidth: 2 }} connectNulls isAnimationActive={false}>
             <LabelList dataKey={prepared[0].series.key} content={endLabel} />
@@ -192,8 +199,8 @@ function BarsChart({ chart, series }: { chart: AnalyticsChart; series: Analytics
     const name = displayLabel(payload.value);
     const shown = name.length > 18 ? `${name.slice(0, 17)}…` : name;
     return <g>
-      <text x={x} y={y} dy={drop != null && drop > 0.05 ? -1 : 4} textAnchor="end" className="flc-cat">{shown}</text>
-      {drop != null && drop > 0.05 && <text x={x} y={y} dy={12} textAnchor="end" className="flc-drop">−{drop.toFixed(1)}% vs prev</text>}
+      <text x={x} y={y} dy={drop != null && drop > 0.05 ? -1 : 4} textAnchor="end" fill="var(--foreground)" fontSize={12}>{shown}</text>
+      {drop != null && drop > 0.05 && <text x={x} y={y} dy={12} textAnchor="end" fill="var(--muted-foreground)" fontSize={10}>−{drop.toFixed(1)}% vs prev</text>}
     </g>;
   };
 
@@ -211,14 +218,14 @@ function BarsChart({ chart, series }: { chart: AnalyticsChart; series: Analytics
     return <TipBox title={displayLabel(point.label)} rows={rows} />;
   };
 
-  return <div className="flc-plot">
+  return <div className="text-foreground">
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={points} layout="vertical" margin={{ top: 0, right: valueReserve, bottom: 0, left: 0 }} accessibilityLayer>
         <XAxis type="number" domain={[0, "dataMax"]} hide />
-        <YAxis type="category" dataKey="label" width={140} tickLine={false} axisLine={{ stroke: "#d9d6e4" }} tick={categoryTick} />
-        <Tooltip content={renderTip} cursor={{ fill: "#f4f2f9" }} isAnimationActive={false} />
+        <YAxis type="category" dataKey="label" width={140} tickLine={false} axisLine={{ stroke: "var(--border)" }} tick={categoryTick} />
+        <Tooltip content={renderTip} cursor={{ fill: "var(--muted)" }} isAnimationActive={false} />
         <Bar dataKey="value" barSize={18} radius={[0, 4, 4, 0]} activeBar={{ fillOpacity: 0.82 }} isAnimationActive={false}>
-          <LabelList dataKey="value" position="right" formatter={(value) => typeof value === "number" ? formatValue(value, chart.unit) : value} className="flc-value" fill="#2c2930" />
+          <LabelList dataKey="value" position="right" formatter={(value) => typeof value === "number" ? formatValue(value, chart.unit) : value} fill="var(--foreground)" fontSize={11} />
           {points.map((point, index) => <Cell key={point.label} fill={funnel ? funnelStepColor(index, points.length) : seriesColor(0)} />)}
         </Bar>
       </BarChart>
@@ -226,17 +233,33 @@ function BarsChart({ chart, series }: { chart: AnalyticsChart; series: Analytics
   </div>;
 }
 
-export function Chart({ chart }: { chart: AnalyticsChart }) {
+export function Chart({ chart: rawChart }: { chart: AnalyticsChart }) {
+  // The API can serialize an empty Go slice as JSON null, so normalize series and
+  // points to arrays before anything downstream reads them — otherwise a chart with
+  // no data would crash the whole answer view.
+  const chart: AnalyticsChart = {
+    ...rawChart,
+    series: (rawChart.series ?? []).map((series) => ({ ...series, points: series.points ?? [] })),
+  };
   const [seriesKey, setSeriesKey] = useState(chart.series[0]?.key ?? "");
   const series = chart.series.find((item) => item.key === seriesKey) ?? chart.series[0];
   const trend = chart.type === "trend";
+  if (chart.series.length === 0 || chart.series.every((item) => item.points.length === 0)) return null;
   const granularity = trend ? compactTrendPoints(series?.points ?? []).granularity : null;
   const chartSubtitle = granularity ? chart.subtitle.replace(/daily/ig, `${granularity}ly`) : chart.subtitle;
 
-  return <article className={`fl-chart ${chart.type}`}>
-    <div className="fl-chart-head"><div><h4>{chart.title}</h4><p>{chartSubtitle}</p></div><span>{chart.unit ?? ""}</span></div>
-    {!trend && chart.series.length > 1 && <div className="fl-series-tabs">{chart.series.map((item) => <button key={item.key} className={item.key === series?.key ? "active" : ""} onClick={() => setSeriesKey(item.key)}>{item.label}</button>)}</div>}
-    {trend ? <TrendChart chart={chart} /> : series ? <BarsChart chart={chart} series={series} /> : null}
-    <DataTable chart={chart} />
-  </article>;
+  return <Card className="gap-3 py-4">
+    <div className="flex items-start justify-between gap-3 px-4">
+      <div className="min-w-0">
+        <h4 className="text-sm font-semibold leading-tight">{chart.title}</h4>
+        <p className="text-xs text-muted-foreground mt-0.5">{chartSubtitle}</p>
+      </div>
+      {chart.unit ? <span className="text-xs text-muted-foreground font-mono shrink-0">{chart.unit}</span> : null}
+    </div>
+    {!trend && chart.series.length > 1 && <div className="flex flex-wrap gap-1 px-4">{chart.series.map((item) => <button key={item.key} className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors", item.key === series?.key ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground")} onClick={() => setSeriesKey(item.key)}>{item.label}</button>)}</div>}
+    <div className="px-4">
+      {trend ? <TrendChart chart={chart} /> : series ? <BarsChart chart={chart} series={series} /> : null}
+      <DataTable chart={chart} />
+    </div>
+  </Card>;
 }
