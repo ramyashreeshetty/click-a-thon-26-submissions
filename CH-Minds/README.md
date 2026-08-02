@@ -32,6 +32,8 @@ Three stages:
 
 Live end to end: frontend on Vercel, backend on Railway, data and analysis in **ClickHouse Cloud**, tracing in **Langfuse Cloud**. Loaded with the full known batch (2026-06-01 to 2026-07-05) plus the real unseen-incident slice (2026-07-06 to 2026-07-10) - point the date picker at any day in that range, open a flagged anomaly (or click a bar in "Anomaly history" to investigate manually), and follow the "Open full trace in Langfuse" link on the diagnosis card for the full audit trail.
 
+> **Note on the flagged-anomaly list vs. drill-down numbers**: `anomaly_candidates` is a frozen, point-in-time detection log - each row's stored deviation and baseline are exactly what the background scan computed at the moment it ran, and are never rewritten afterward (only its `open`/`investigated` status changes). Clicking "Investigate" does not read those stored numbers at all - it discards the snapshot and re-runs the full baseline/ranking/refinement query chain live, from scratch, against whatever is currently loaded. So the diagnosis you see is always freshly computed, never the frozen snapshot, even if the candidate itself was flagged several scans ago.
+
 > **Note on trace links**: Langfuse Cloud ingests and indexes traces asynchronously - the trace itself is created immediately (verifiable via Langfuse's public API within seconds), but the web dashboard's trace detail page can take a minute or two to reflect it. If "Open full trace in Langfuse" briefly shows "Trace not found," wait a moment and hit Retry - it is an indexing delay on Langfuse's side, not a missing or broken trace.
 
 ## Demo Video
