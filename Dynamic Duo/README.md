@@ -53,6 +53,17 @@ Headlines the system produced on its own:
   (the unseen dims reuse IDs with new attributes) — several were auto-classified
   `ruled_out_seasonal`, and the caveat is documented rather than papered over.
 
+## For the judges — where each criterion lives
+
+| Criterion | Look at |
+|---|---|
+| ClickHouse & OSS stack | Detection ensemble and the q1–q6 drill-downs are pure SQL ([`source/detector/`](source/detector/), [`source/sql/agent/`](source/sql/agent/)); MV cascade + SummingMergeTree rollup ([`source/sql/`](source/sql/)); ClickStack wired and screenshotted below; LibreChat is the product surface with two MCP servers |
+| Problem fit | The hosted demo: *"What incidents are there?"* → *"Why did fill rate drop June 23–25?"* → *"How do you know?"* |
+| Technical implementation | [ARCHITECTURE.md](ARCHITECTURE.md) · digit-for-digit guardrail ([`source/detector/guardrail.py`](source/detector/guardrail.py)) · idempotent re-runs · planted-oracle regression fixture ([`source/EDGE_CASES.md`](source/EDGE_CASES.md)) |
+| Innovation | Classification by model *disagreement* · confounder elimination with printed residuals · publication blocked on one unverified digit · a run-scoped trace id on every diagnosis |
+| Scalability & impact | Rollup makes detection cost ∝ series × hours, not events; a new metric is a whitelist row, not a redesign ([ARCHITECTURE.md](ARCHITECTURE.md), last section) |
+| Presentation | [pitch-deck.pdf](pitch-deck.pdf) · [the video](https://www.loom.com/share/5bd585ff8ccb4206b0c4e05244c48044) · this README |
+
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) (1½ pages).
@@ -88,11 +99,16 @@ stdlib-only (urllib); no LangChain, no ORM.
 ## How to run it
 
 ```bash
-git clone https://github.com/nityanandagohain/ch-hackathon && cd ch-hackathon
+cd "Dynamic Duo/source"                # the submission is self-contained
 cd librechat && cp .env.example .env   # set OPENAI_API_KEY (or run keyless on templates)
 cd .. && ./clean_run.sh --yes          # wipe → boot → load → (one wizard moment)
 ./investigate.sh                       # profile → sweep → diagnose every dataset
 ```
+
+(The same tree lives at
+[nityanandagohain/ch-hackathon](https://github.com/nityanandagohain/ch-hackathon).
+To add a fresh slice later: `./load.sh --events <file.parquet> --dataset unseen &&
+./investigate.sh` — exactly what we ran on release day.)
 
 Full walkthrough with expected numbers at every stage: `CLEAN_RUN.md`. Golden-question
 checklist for the chat surface: `librechat/GOLDEN_QUESTIONS.md`. Edge-case regression

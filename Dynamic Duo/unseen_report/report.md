@@ -2,6 +2,13 @@
 
 guardrail: 11/11 diagnoses had every figure verified against query results
 
+Every figure below is reproducible: the exact ClickHouse SQL that produced it is
+logged step by step in
+[`traces_investigation_steps.jsonl`](traces_investigation_steps.jsonl) (193 steps
+across the 11 incidents; the flagship investigation is rendered readable in
+[`TRACE_FLAGSHIP.md`](TRACE_FLAGSHIP.md)). Each incident's `trace` line below
+matches the `trace_id` stored on its diagnosis row.
+
 ## inc_20260706T00_fill_rate_ad_format_native
 - window   : 2026-07-06 00:00:00 -> 2026-07-07 00:00:00 UTC
 - metric   : fill_rate   scope: ad_format=native
