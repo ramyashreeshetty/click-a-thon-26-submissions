@@ -18,7 +18,7 @@ A runtime instrumentation + analytics agent system with a context layer that del
 Given a feature spec, the **Instrumentation Agent** builds the DDL for new data (using spec + events), updates schema metadata, creates ClickHouse tables + activity MVs, and publishes a new Context version. The **Visualization / Conversation Agent** fetches the latest context, plans queries, and returns charts/insights. The **Context Agent** keeps a versioned business catalog in Postgres so analytics never reads a stale snapshot.
 
 ## Hosted Demo
-[link] — TODO before freeze (LibreChat / product UI)
+[http://3.109.41.83:3080/](http://3.109.41.83:3080/) — LibreChat product UI
 
 ## Demo Video
 [link] — TODO (2–3 minutes)
@@ -36,7 +36,7 @@ Summary:
 - **Langfuse** traces agent steps; **LibreChat** is the chat UI; ClickHouse holds event facts
 
 How to run: [`RUN.md`](./RUN.md) · env template: [`.env.example`](./.env.example)  
-Source code: team’s AgentHouse code repo (include / link in this PR so the submission is self-contained).
+Source code: [`src/`](./src/) (latest `main` from the AgentHouse repo). Run: [`RUN.md`](./RUN.md) / [`run.sh`](./run.sh).
 
 ## How we built it
 - **ClickHouse**: per-event MergeTree tables + Materialized Views into a Single Activity Schema (`activity_events`); funnel queries via `windowFunnel`
@@ -55,7 +55,7 @@ See [`RUN.md`](./RUN.md).
 
 | Guideline item | Location | Status |
 |----------------|----------|--------|
-| §1 Code + `RUN.md` | `RUN.md`, `.env.example`, source repo | RUN.md done; source copy into this folder still TODO |
+| §1 Code + `RUN.md` | `src/`, `RUN.md`, `run.sh`, `src/.env.example` | Done |
 | §2 Architecture | `Architecture.md`, `image.png` | Done |
 | §3 Generated DDL (01–05 + 6th) | `unseen_data/generated_ddl_all_specs.txt` | Done |
 | §3 Context layer + before/after | `unseen_data/context_layer.json`, `context_before_after_*` | Done (`v5`→`v6` coupon) |
