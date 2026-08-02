@@ -21,7 +21,7 @@ Given a feature spec, the **Instrumentation Agent** builds the DDL for new data 
 [http://3.109.41.83:3080/](http://3.109.41.83:3080/) — LibreChat product UI
 
 ## Demo Video
-[https://www.loom.com/share/285b3125cb1340e28ecbf4f248d7f971](https://www.loom.com/share/285b3125cb1340e28ecbf4f248d7f971)
+[https://www.loom.com/share/e8b3bcd1cf3447709c1ce4618a633346](https://www.loom.com/share/e8b3bcd1cf3447709c1ce4618a633346)
 
 ## Pitch deck
 [`Clickathon.pdf`](./Clickathon.pdf)
