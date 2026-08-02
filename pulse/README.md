@@ -40,7 +40,7 @@ All dataset content is **synthetic**. No real customer data or PII.
 
 ## Hosted Demo
 
-**[Live dashboard](YOUR_HOSTED_DEMO_URL)**
+**[Live dashboard](http://35.200.209.163:5173/)**
 
 ![Pulse dashboard — concurrency curve with peak and average](presentations/pulse-by-layers/public/dashboard.png)
 
