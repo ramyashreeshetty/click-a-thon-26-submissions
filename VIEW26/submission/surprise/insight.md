@@ -1,5 +1,7 @@
 # Surprise feature: Promo / Coupon at Checkout
 
+The sealed run was revalidated against release `20260802T034156Z-f96aeec`. A compact machine-readable snapshot of the live profile, schema, context, evaluations, insight, and public trace is available in [`release-output.json`](./release-output.json).
+
 ## Instrumentation output
 
 - **Run:** `run_9322a8acbe7571f8`

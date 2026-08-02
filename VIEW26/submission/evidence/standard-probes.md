@@ -2,6 +2,8 @@
 
 All four prompts ran against context v6 across the six published feature releases. Each feature was routed to its own governed entry event, completion event, entity grain, schema, and ClickHouse playbook before portfolio synthesis.
 
+The deployed release was revalidated on 2026-08-02. Its health, six completed runs, 54/54 evaluation result, and a live semantic-routing probe are captured in [`release-validation.json`](./release-validation.json). The public graded trace links below remain immutable submission evidence.
+
 ## 1. Existing funnel and most important issues
 
 **Prompt:** Analyze the existing funnel and surface the most important issues, with the why.
