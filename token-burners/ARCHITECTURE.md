@@ -125,7 +125,10 @@ flowchart TB
 
 ## 04 · The computation pipeline (9 steps, one SQL query)
 
-The entire state machine runs inside a single Refreshable MV. No external process, no cron.
+The entire state machine runs inside a single Refreshable MV. No external process, no cron,
+no Python, no Spark, no Flink. All computation happens inside ClickHouse itself, using native
+SQL with array functions. The only thing outside ClickHouse is the Kafka source, everything
+from ingestion to enrichment to state machine execution to serving lives in the same cluster.
 
 | Step | What | Why |
 |------|------|-----|
