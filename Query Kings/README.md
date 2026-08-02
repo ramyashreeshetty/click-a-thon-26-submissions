@@ -47,6 +47,14 @@ The demo covers:
 
 See [`Architecture.md`](./Architecture.md) for the full 1–2 pager.
 
+## Pitch deck
+
+[`pitch-deck.pdf`](./pitch-deck.pdf)
+
+## Graded artifacts
+
+See [`artifacts/`](./artifacts/) — DDL (specs 01–06), context changelog/diffs, analytics asks, 6th-spec bundle.
+
 ## How to run it
 
 **Full setup + the one end-to-end command:** see [`RUN.md`](./RUN.md).
