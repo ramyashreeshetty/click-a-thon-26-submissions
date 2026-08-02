@@ -42,3 +42,6 @@ backend/mcp/reports/
 
 # Watch subscriptions and the notification log — runtime state, per install.
 backend/mcp/watches/
+frontend/LibreChat/*
+!frontend/LibreChat/librechat.yaml
+!frontend/LibreChat/.env.example
