@@ -15,6 +15,8 @@ COPY specs ./specs
 COPY base_context.md ./base_context.md
 COPY infra ./infra
 COPY frontend ./frontend
+# Context bootstrap needs ddl.sql + instrumentation notes (parquet stays out via .dockerignore)
+COPY data ./data
 
 RUN mkdir -p frontend/dist
 
