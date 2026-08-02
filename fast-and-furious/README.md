@@ -20,10 +20,14 @@ session into foreground-only active intervals, and serves a concurrency curve
 two independent read paths off the same underlying data.
 
 ## Hosted Demo
-_TBD — to be added before judging closes._
+[Dashboard](https://fastandfurious.live/)
+[Chat with Data ](https://chat.fastandfurious.live/) Please signup before using. No friction, only email required.
 
 ## Demo Video
-_TBD — to be added before judging closes._
+[Demo Video](https://clickathon.blr1.digitaloceanspaces.com/demo-video.mp4)
+
+## Pitch Deck
+[Pitch Deck](https://clickathon.blr1.digitaloceanspaces.com/pitch-deck.pdf)
 
 ## Architecture
 Three stages, all on ClickHouse Cloud (`sonyliv` database, `ap-south-1`):
@@ -69,5 +73,4 @@ see [`solution/README.md`](solution/README.md) and [`pipeline/sql/020_serving_la
 for the filter dimensions (content/asset, device/platform, geo/region, subscription
 tier) and the columns they read from.
 
-## Pitch Deck
-_TBD — to be added before judging closes._
+
