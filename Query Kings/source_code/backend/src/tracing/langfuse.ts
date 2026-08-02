@@ -7,7 +7,13 @@ if (!process.env.LANGFUSE_BASE_URL && process.env.LANGFUSE_HOST) {
 }
 
 export const langfuseSdk = new NodeSDK({
-  spanProcessors: [new LangfuseSpanProcessor()],
+  // Export every Langfuse span (not only LLM scopes). Needed so
+  // langfuse.trace.public on the root span actually reaches Cloud.
+  spanProcessors: [
+    new LangfuseSpanProcessor({
+      shouldExportSpan: () => true,
+    }),
+  ],
 });
 
 export function assertLangfuseEnv() {
@@ -39,15 +45,27 @@ export async function shutdownLangfuse() {
   }
 }
 
+type PublicizableSpan = {
+  setTraceAsPublic?: () => unknown;
+};
+
 /**
  * Mark the current Langfuse trace public so the URL works without login.
+ * Prefer calling this at the START of the root observation (pass rootSpan).
  * Enabled when LANGFUSE_MAKE_TRACES_PUBLIC=1/true, or automatically when
  * LANGFUSE_BASE_URL points at Langfuse Cloud. Opt out with =0/false.
  */
-export function publishActiveTraceIfEnabled() {
+export function publishActiveTraceIfEnabled(rootSpan?: PublicizableSpan) {
   if (!shouldPublishTraces()) return;
   try {
-    setActiveTraceAsPublic();
+    if (typeof rootSpan?.setTraceAsPublic === "function") {
+      rootSpan.setTraceAsPublic();
+    } else {
+      setActiveTraceAsPublic();
+    }
+    console.log(
+      "Langfuse: marked active trace as public (shareable without login).",
+    );
   } catch (error) {
     console.warn(`Could not mark Langfuse trace public: ${error}`);
   }

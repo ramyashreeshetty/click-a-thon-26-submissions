@@ -38,6 +38,8 @@ export async function runPipeline(input: RunPipelineInput) {
   try {
     await startActiveObservation("schema-kings.pipeline", async (rootSpan) => {
       traceId = rootSpan.traceId;
+      // Mark public immediately so judges can open the link without login.
+      publishActiveTraceIfEnabled(rootSpan);
       rootSpan.update({
         input: {
           job_id: jobId,
@@ -190,8 +192,6 @@ export async function runPipeline(input: RunPipelineInput) {
           trace_id: rootSpan.traceId,
         },
       });
-
-      publishActiveTraceIfEnabled();
 
       console.log("");
       console.log(`Instrumentation agent finished for ${result.featureSlug}.`);

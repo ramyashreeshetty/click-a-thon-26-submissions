@@ -49,6 +49,8 @@ export async function runAnalyticsAsk(input: {
       "schema-kings.analytics_ask",
       async (rootSpan) => {
         traceId = rootSpan.traceId;
+        // Mark public immediately so judges can open the link without login.
+        publishActiveTraceIfEnabled(rootSpan);
         rootSpan.update({
           input: {
             question: input.question,
@@ -383,7 +385,6 @@ export async function runAnalyticsAsk(input: {
           });
 
           rootSpan.update({ output: runSummary });
-          publishActiveTraceIfEnabled();
           return finalAnswer;
         } catch (error) {
           // Graceful unavailable for LLM/infra failures — never crash the CLI with a stack for judges.
