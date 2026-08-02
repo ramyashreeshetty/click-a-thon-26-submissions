@@ -24,7 +24,7 @@ password: clicktick
 [Clicktick_Pitch_Deck.pptx](https://github.com/ClickHouse/click-a-thon-26-submissions/blob/main/team-clicktick/Clicktick_Pitch_Deck.pptx)
 
 ## Demo Video
-Link to your recorded 2–3 minute demo video (mandatory).
+(https://www.loom.com/share/596a893ccadb4921b10de35832cddcc6)
 
 ## Architecture
 
