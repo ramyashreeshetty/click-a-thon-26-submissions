@@ -138,6 +138,28 @@ ClickStack is not decoration here; it is the serving and observability surface.
   (`otel_metrics_gauge` / `otel_logs` / `otel_traces`), because the Cloud service exposes
   no OTLP endpoint. A reader would reasonably assume one destination; it is two.
 
+### ClickStack, captured
+
+**Eleven dashboards, deployed as code** from [`tools/clickstack-cloud.sh`](tools/clickstack-cloud.sh)
+— concurrency, drilldown, content, time-window trend, pipeline health, query cost, user-level,
+ingestion & preprocessing, publication & exactness, storage & merge pressure, and concurrency
+decline alerting.
+
+![ClickStack dashboards deployed for this submission](docs/screenshots/clickstack-dashboards.png)
+
+**The drilldown, with all 12 dataset filters** bound to real columns — platform, country, title,
+content id, app version, audio language, subtitle language, player version, video resolution, show
+name, video type, category. The first tile is a standing warning that **peak is not summable across
+dimensions**, because the tiles below it are per-dimension and adding them would be wrong.
+
+![SonyLIV drilldown dashboard with the 12 dataset filters](docs/screenshots/clickstack-drilldown-filters.png)
+
+**The product UI**, reading ClickHouse Cloud live — peak **23,324**, time-weighted average
+**944.7**, the unseen day selected, and a per-panel "SQL + trace" control that opens the exact
+query and its `system.query_log` record.
+
+![Hosted dashboard showing the foreground concurrency curve for the unseen day](docs/screenshots/hosted-demo-curve.png)
+
 Wiring, all committed: [`deploy/`](deploy/) (compose files) ·
 [`.env.example`](.env.example) (secrets redacted, no real values) ·
 [`tools/clickstack-cloud.sh`](tools/clickstack-cloud.sh) (sources and dashboards as code) ·
