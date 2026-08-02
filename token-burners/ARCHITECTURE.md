@@ -172,6 +172,24 @@ enrichment. Zero storage cost for the landing table. Kafka format changes only t
 Balances freshness vs compute cost. Worst-case latency from event arrival to dashboard: ~60s
 (30s ClickPipes batch + 30s refresh).
 
+### 90-second liveness cap
+
+Each event's active segment extends at most 90 seconds into the future (until the next event
+arrives or 90s passes, whichever is sooner). This is what closes sessions that silently die
+without sending a VideoSessionEnd.
+
+Why 90s specifically: heartbeats arrive every 30-40 seconds. A gap of 90s means two consecutive
+heartbeats were missed. We measured on the training data: 99.3% of all legitimate inter-event
+gaps within an active session are under 90s. Setting the cap lower (say 60s) would falsely close
+sessions during normal network jitter. Setting it higher (say 120s) would keep phantom sessions
+alive too long, inflating the count.
+
+The trade-off: a session that genuinely disconnects at time T continues to be counted until
+T+90s. At peak (18K concurrent), this means up to ~2 minutes of residual overcount for
+disconnected sessions. In practice, since most sessions send an explicit VideoSessionEnd, the
+90s cap only fires for crash/kill scenarios (~4% of sessions in the training data had no END
+event).
+
 ### Tie-break priority
 
 161K same-millisecond ties. Without deterministic ordering, same input gives different output.
