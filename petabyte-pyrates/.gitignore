@@ -15,8 +15,11 @@ htmlcov/
 .DS_Store
 docs/~$*
 
-# Demo video (host externally; exceeds GitHub 100 MB limit)
-*.mov
+# Full-quality source video (too large for GitHub; compressed demo is petabyte.mp4)
+petabyte.mov
+petabyte-source.mov
+ffmpeg2pass-0.log
+ffmpeg2pass-0.log.mbtree
 
 # Lambda MCP deploy artifacts
 src/inmobi_ch_mcp_ontology/ontology.json

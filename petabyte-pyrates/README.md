@@ -40,8 +40,7 @@ inmobi-ops-ui          # http://localhost:8080
 
 ## Demo Video
 
-<!-- TODO: add 2–3 min Loom/YouTube link before PR -->
-`TBD` — record: metric drops → anomaly in queue → agent investigates → plain-English diagnosis.
+[`petabyte.mp4`](petabyte.mp4) (~13 min) — metric drops → anomaly in queue → agent investigates → plain-English diagnosis.
 
 ## Pitch Deck
 
