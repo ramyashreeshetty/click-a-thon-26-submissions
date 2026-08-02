@@ -28,7 +28,7 @@ Key capabilities:
 [https://math-mahogany-dish.ngrok-free.dev/dashboard/](https://math-mahogany-dish.ngrok-free.dev/dashboard/)
 
 ## Demo Video
-https://www.loom.com/share/3152d2b8e6bf4475bcb2319248af97b4
+https://www.loom.com/share/5f97faf5390e410b807488a035724597
 
 ## Architecture
 
