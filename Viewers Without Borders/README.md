@@ -78,8 +78,11 @@ filters and a JUDGE MODE panel that traces any number back to its SQL and its
 
 ## Demo Video
 
-**TODO — being recorded; the link will be added to this README before judging.**
-*(2–3 minutes; shows the concurrency curve, the filters moving it, and ClickStack live.)*
+**https://www.loom.com/share/5523c9515614477fbb671268b1cd0676**
+
+A recorded walkthrough of the live dashboard: the foreground concurrency curve for the
+unseen day, the model comparison against the naive session-span reading, dataset filters
+changing the curve, and ClickStack running.
 
 ## Architecture
 
