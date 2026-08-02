@@ -20,7 +20,7 @@ Companion services on the demo VM: HyperDX `http://8.231.76.83:8080` · Langfuse
 **LibreChat test login for judges:** `preethamshyam123@gmail.com` / `clickhouse$Nirad26` — pick the **"Gemini · traced"** endpoint, enable the `watchhouse` MCP chip, and ask *"what was peak concurrency on ANDROID_PHONE?"* (expect 6,046).
 
 ## Demo Video
-_Link being added at submission time — see PR thread._
+**https://vimeo.com/1214920822** (2–3 min, Orus voiceover, live cloud walkthrough: dashboard → filters → architecture → pipeline provenance → deck → HyperDX → Langfuse → LibreChat)
 
 ## Architecture
 Two diagrams in [the full README below](#architecture): the pipeline (Kafka → validate → dedup → ClickHouse → oracle-gated derive → delta serving → dashboards/chat) and the deployment (browser → Cloud Run → ClickHouse Cloud; one GCE VM runs ClickStack + Langfuse + LibreChat + LiteLLM + MCP from `infra/edge-compose.yml`). Tool roles, per the evidence requirements:
