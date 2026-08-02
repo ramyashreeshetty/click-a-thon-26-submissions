@@ -35,17 +35,48 @@ undercount by ~3%.
 The 90s cap auto-closes sessions that stop sending events. Measured on the data: 99.3% of
 legitimate heartbeat gaps are under 90s.
 
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    state "fg gate" as FG {
+        [*] --> Foreground: default
+        Foreground --> Background: AppBackgrounded
+        Background --> Foreground: AppForegrounded
+    }
+
+    state "playing gate" as PLAY {
+        [*] --> NotPlaying: default
+        NotPlaying --> Playing: VideoPlay / resume
+        Playing --> NotPlaying: pause
+    }
+
+    state "ended gate" as END {
+        [*] --> Open: default
+        Open --> Closed: VideoSessionEnd
+    }
 ```
-Event:   START  PLAY  HB  HB  BG   HB  HB  FG   HB  PAUSE  HB  RESUME  HB  END
-         ─────────────────────────────────────────────────────────────────────────
-fg:        1     1    1   1   0    0   0   1    1    1      1     1      1    1
-playing:   0     1    1   1   1    1   1   1    1    0      0     1      1    1
-ended:     0     0    0   0   0    0   0   0    0    0      0     0      0    1
-         ─────────────────────────────────────────────────────────────────────────
-ACTIVE:    ✗     ✓    ✓   ✓   ✗    ✗   ✗   ✓    ✓    ✗      ✗     ✓      ✓    ✗
-                ╰──────────╯            ╰──────╯                  ╰──────╯
-                  run 1                  run 2                      run 3
+
+```mermaid
+flowchart LR
+    FG["fg = 1?"]
+    PLAY["playing = 1?"]
+    END["ended = 0?"]
+    FRESH["fresh ≤ 90s?"]
+    ACTIVE["ACTIVE ✓<br/>session counted"]
+    INACTIVE["INACTIVE ✗<br/>not counted"]
+
+    FG -->|yes| PLAY
+    FG -->|no| INACTIVE
+    PLAY -->|yes| END
+    PLAY -->|no| INACTIVE
+    END -->|yes| FRESH
+    END -->|no| INACTIVE
+    FRESH -->|yes| ACTIVE
+    FRESH -->|no| INACTIVE
 ```
+
+## 03 · Architecture
 
 ```mermaid
 flowchart TB
