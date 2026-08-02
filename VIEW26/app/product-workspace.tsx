@@ -1096,6 +1096,7 @@ export default function ProductWorkspace() {
   const [selection, setSelection] = useState<FeatureID>("express");
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [busy, setBusy] = useState(false);
+  const [approvedRunIds, setApprovedRunIds] = useState<Set<string>>(() => new Set());
   const [busyChatId, setBusyChatId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [question, setQuestion] = useState("");
@@ -1120,12 +1121,13 @@ export default function ProductWorkspace() {
   const [preflight, setPreflight] = useState<EventPreflight | null>(null);
   const [intakeError, setIntakeError] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+  const approvalsInFlight = useRef<Set<string>>(new Set());
 
   const activeChat = chats.find((chat) => chat.id === activeChatId) ?? chats[0] ?? null;
   const conversation = useMemo(() => activeChat?.turns ?? [], [activeChat]);
   const chatBusy = busyChatId !== null;
   const activeChatBusy = busyChatId !== null && busyChatId === activeChat?.id;
-  const pendingRuns = useMemo(() => runs.filter((item) => item.stage === "awaiting_approval"), [runs]);
+  const pendingRuns = useMemo(() => runs.filter((item) => item.stage === "awaiting_approval" && !approvedRunIds.has(item.id)), [approvedRunIds, runs]);
   const publishedRuns = useMemo(() => runs.filter((item) => item.stage === "completed" && item.context), [runs]);
   const dashboardRuns = useMemo(() => publishedRuns.filter((item) => item.analytics_bundle), [publishedRuns]);
   const dashboardRun = useMemo(() => dashboardRuns.find((item) => item.id === dashboardRunId) ?? dashboardRuns[0] ?? null, [dashboardRuns, dashboardRunId]);
@@ -1310,15 +1312,26 @@ export default function ProductWorkspace() {
   }
 
   async function approveRun(target: Run) {
+    if (approvalsInFlight.current.has(target.id) || approvedRunIds.has(target.id)) return;
+    approvalsInFlight.current.add(target.id);
     setBusy(true);
     setError("");
     try {
       const response = await fetch(`${API}/api/runs/${target.id}/approve`, { method: "POST" });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Approval failed");
-      setRun(target);
+      setApprovedRunIds((current) => new Set(current).add(target.id));
       setView("pipeline");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Approval failed"); } finally { setBusy(false); }
+      const latestResponse = await fetch(`${API}/api/runs/${target.id}`, { cache: "no-store" });
+      if (latestResponse.ok) {
+        const latest = await latestResponse.json() as Run;
+        setRun(latest);
+        setRuns((current) => [latest, ...current.filter((item) => item.id !== latest.id)]);
+      }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Approval failed"); } finally {
+      approvalsInFlight.current.delete(target.id);
+      setBusy(false);
+    }
   }
 
   async function ask(prompt?: string) {
@@ -1650,7 +1663,7 @@ export default function ProductWorkspace() {
               </CardContent></Card>
             ))}
           </div>
-          {run.stage === "awaiting_approval" && (
+          {run.stage === "awaiting_approval" && !approvedRunIds.has(run.id) && (
             <Card className="border-amber-500/40 bg-amber-500/5"><CardContent className="flex flex-wrap items-center justify-between gap-3">
               <div><Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-400">Decision required</Badge><h3 className="mt-2 text-base font-semibold">Approve the ClickHouse contract for {run.input?.name}</h3><p className="mt-1 text-sm text-muted-foreground">Nothing is executed or published until this schema passes your review.</p></div>
               <Button onClick={() => void approveRun(run)} disabled={busy}>Approve &amp; continue →</Button>

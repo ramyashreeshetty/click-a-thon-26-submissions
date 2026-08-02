@@ -100,11 +100,19 @@ func (s *Server) getRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) approveRun(w http.ResponseWriter, r *http.Request) {
-	if err := s.orchestrator.Approve(r.PathValue("id")); err != nil {
+	runID := r.PathValue("id")
+	before, _ := s.orchestrator.Store().GetRun(runID)
+	if err := s.orchestrator.Approve(runID); err != nil {
 		writeError(w, http.StatusConflict, err)
 		return
 	}
-	writeJSON(w, http.StatusAccepted, map[string]any{"approved": true, "run_id": r.PathValue("id")})
+	after, _ := s.orchestrator.Store().GetRun(runID)
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"approved":         true,
+		"already_approved": before.Stage != domain.StageAwaitingApproval,
+		"run_id":           runID,
+		"stage":            after.Stage,
+	})
 }
 
 func (s *Server) refreshRunAnalytics(w http.ResponseWriter, r *http.Request) {

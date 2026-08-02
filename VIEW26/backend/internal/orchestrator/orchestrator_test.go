@@ -91,6 +91,58 @@ func TestResetIsRejectedWhileRunAwaitsApproval(t *testing.T) {
 	t.Fatal("run did not reach approval gate")
 }
 
+func TestApproveIsIdempotentAfterApprovalGate(t *testing.T) {
+	memory := store.NewMemory(agent.BaselineContext())
+	engine := New(memory, clickhouse.NewDisabled(), otel.Tracer("test"), "featurelens_test")
+	run, err := engine.Start(context.Background(), domain.FeatureInput{
+		Name: "Retry safe approval", Role: "product_manager",
+		SpecMarkdown: "# Retry safe approval\n\n- Does this feature complete?",
+		EventsNDJSON: `{"event":"retry_started","id":"r1","timestamp":"2026-08-01T08:00:00Z","application_id":"a1"}
+{"event":"retry_completed","id":"r2","timestamp":"2026-08-01T08:01:00Z","application_id":"a1"}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		current, _ := memory.GetRun(run.ID)
+		if current.Stage == domain.StageAwaitingApproval {
+			if err := engine.Approve(run.ID); err != nil {
+				t.Fatalf("first approval failed: %v", err)
+			}
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		current, _ := memory.GetRun(run.ID)
+		if approvalWasAccepted(current.Stage) {
+			if err := engine.Approve(run.ID); err != nil {
+				t.Fatalf("duplicate approval at %s failed: %v", current.Stage, err)
+			}
+			return
+		}
+		if current.Stage == domain.StageFailed {
+			t.Fatalf("run failed: %s", current.Error)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("run did not cross the approval gate")
+}
+
+func TestApproveStillRejectsRunsBeforeApprovalGate(t *testing.T) {
+	memory := store.NewMemory(agent.BaselineContext())
+	memory.CreateRun(domain.FeatureRun{ID: "run_not_ready", Stage: domain.StageSchemaValidated})
+	engine := New(memory, clickhouse.NewDisabled(), otel.Tracer("test"), "featurelens_test")
+
+	if err := engine.Approve("run_not_ready"); err == nil {
+		t.Fatal("approval was accepted before the human gate")
+	}
+}
+
 func TestStartIsIdempotentForSameFeatureAndSchemaVersion(t *testing.T) {
 	memory := store.NewMemory(agent.BaselineContext())
 	engine := New(memory, clickhouse.NewDisabled(), otel.Tracer("test"), "featurelens_test")

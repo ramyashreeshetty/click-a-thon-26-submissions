@@ -153,6 +153,9 @@ func (o *Orchestrator) Approve(runID string) error {
 		return fmt.Errorf("run %s not found", runID)
 	}
 	if run.Stage != domain.StageAwaitingApproval {
+		if approvalWasAccepted(run.Stage) {
+			return nil
+		}
 		return fmt.Errorf("run %s is at %s, not awaiting approval", runID, run.Stage)
 	}
 	o.mu.Lock()
@@ -166,6 +169,24 @@ func (o *Orchestrator) Approve(runID string) error {
 	default:
 	}
 	return nil
+}
+
+// Approval is idempotent once the workflow has crossed its human gate. Clients
+// can safely retry after a timeout or a delayed UI refresh without turning an
+// already accepted decision into a user-facing conflict.
+func approvalWasAccepted(stage domain.RunStage) bool {
+	switch stage {
+	case domain.StageSchemaExecuting,
+		domain.StageSchemaVerified,
+		domain.StageContextCandidate,
+		domain.StageContextPublished,
+		domain.StageAnalyticsComplete,
+		domain.StageEvaluated,
+		domain.StageCompleted:
+		return true
+	default:
+		return false
+	}
 }
 
 func (o *Orchestrator) Ask(ctx context.Context, request domain.QuestionRequest) (domain.QuestionResponse, error) {
