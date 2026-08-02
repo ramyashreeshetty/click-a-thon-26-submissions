@@ -12,6 +12,7 @@ minute, and prove it against the raw events.
 ## Team Members
 
 - Barun Debnath ([@d-cryptic](https://github.com/d-cryptic))
+- Mitali Laroia
 
 ## What it does
 
