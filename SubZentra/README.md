@@ -4,7 +4,7 @@
 
 **Demo:** [hosted demo link — TODO]
 **Video (2–3 min):** [Loom walkthrough](https://www.loom.com/share/eeb86c5957bd4d5ea86b71d31d3db0f7)
-**Pitch deck:** [pitch deck PDF — TODO]
+**Pitch deck:** [ZentraOS-SubZentra-PitchDeck.pdf](./ZentraOS-SubZentra-PitchDeck.pdf)
 
 ---
 
