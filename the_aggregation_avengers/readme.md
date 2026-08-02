@@ -18,7 +18,7 @@ https://github.com/ranganadh2014/true_ccu
 True CCU answers "how many people are watching right now?" for SonyLIV at streaming scale — minute-grain concurrency with peak and peak-minute, sliceable by platform, content, language, country, app/player version and more, served from a pre-aggregated ClickHouse gold layer.
 
 ## Hosted Demo
--
+It is currently local ready
 
 ## Demo Video
 https://drive.google.com/drive/folders/1mqNeHMX3NmBxSm0OlKq6fSGIl8CviHTw?usp=drive_link
