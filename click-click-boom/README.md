@@ -48,8 +48,9 @@ for everything they know and produce. Summary:
   `current_context` is a view resolving each section to its latest version) — chosen
   over a file or vector store so it's queryable, versioned, and lives next to the data
   it describes.
-- **Observability**: Langfuse (one trace per run) — see `traces.md` for every graded
-  run's trace link.
+- **Observability**: Langfuse (one trace per run) + ClickStack (parallel OTel export
+  of every trace) — see `traces.md` for every graded run's trace link, and
+  `OSS_TOOLS.md` for exactly how Langfuse, ClickStack, and LibreChat are each wired.
 
 ## How we built it
 - **Backend**: Python, agents driven through the LibreChat Agents API, two custom MCP
