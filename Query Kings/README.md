@@ -30,9 +30,7 @@ All dataset content is **synthetic**. No real customer data or PII.
 
 ## Hosted Demo
 
-<!-- TODO: replace with hosted demo URL when deployed -->
-
-**[Live demo](YOUR_HOSTED_DEMO_URL)** — report UI with Ask box, instrumented features, context changelog, and Langfuse deep-links.
+**[Live demo](https://schema-kings.onrender.com)** — report UI with Ask box, instrumented features, context changelog, and Langfuse deep-links.
 
 The demo covers:
 
