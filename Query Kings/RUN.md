@@ -23,8 +23,15 @@ That single script:
 1. Starts ClickHouse + Langfuse (`docker compose`)
 2. Waits for ClickHouse
 3. `pnpm install` + `pnpm cli setup` (8 base tables + context bootstrap)
-4. Runs instrumentation for all 5 known specs
+4. Runs instrumentation for all 5 known specs + the 6th unseen (`06_promo_coupon_checkout`)
 5. Starts the report UI at http://127.0.0.1:8787
+
+6th spec alone (Cloud or already-set-up local):
+
+```bash
+cd source_code/backend
+pnpm cli run ../specs/06_promo_coupon_checkout
+```
 
 Flags:
 

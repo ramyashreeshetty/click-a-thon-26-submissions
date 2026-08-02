@@ -41,9 +41,7 @@ The demo covers:
 
 ## Demo Video
 
-<!-- TODO: replace with your 2–3 min recording -->
-
-**[Demo video (2–3 min)](YOUR_DEMO_VIDEO_URL)**
+**[Demo video (2–3 min)](https://youtu.be/tt9ONsv0zG4)**
 
 ## Architecture
 

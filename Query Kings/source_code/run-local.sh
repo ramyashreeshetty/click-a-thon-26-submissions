@@ -2,7 +2,7 @@
 # One-command local pipeline: Docker → setup → (optional) all specs → serve
 #
 # Usage (from source_code/):
-#   ./run-local.sh              # setup + instrument 5 specs + serve
+#   ./run-local.sh              # setup + instrument 6 specs (5 known + unseen) + serve
 #   ./run-local.sh --setup-only # Docker + pnpm cli setup only
 #   ./run-local.sh --no-serve   # setup + specs, don't start the UI
 #
@@ -200,13 +200,14 @@ if [[ "$SETUP_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-echo "==> Instrumenting known specs"
+echo "==> Instrumenting specs (5 known + 6th unseen)"
 SPECS=(
   01_express_checkout
   02_group_family
   03_status_sharing
   04_abandoned_checkout_recovery
   05_instant_forex
+  06_promo_coupon_checkout
 )
 (
   cd "$BACKEND"
