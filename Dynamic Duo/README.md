@@ -35,8 +35,14 @@ step-by-step trace (hypothesis, exact SQL, result rows, decision) queryable in c
 ## The unseen slice (release-day requirement)
 
 Loaded and diagnosed with **zero code changes** — see
-[`unseen_report/`](unseen_report/) for the system-generated diagnoses, the
-reproducing SQL, and trace ids. Headlines the system produced on its own:
+[`unseen_report/`](unseen_report/) for the system-generated diagnoses and the
+**full traces**: [`TRACE_FLAGSHIP.md`](unseen_report/TRACE_FLAGSHIP.md) renders
+the headline investigation step by step (hypothesis, exact SQL, result rows,
+decision), and all 193 step rows for the 11 incidents are exported from
+`rca.investigation_steps` in
+[`traces_investigation_steps.jsonl`](unseen_report/traces_investigation_steps.jsonl)
+with the stored verdicts in [`diagnoses.jsonl`](unseen_report/diagnoses.jsonl).
+Headlines the system produced on its own:
 
 - **Fill-rate trench, Jul 8–9** → **iOS 17.5** named as the driver (verdict
   `INTERACTION` with its own device family — the OS and its handsets are
