@@ -1,78 +1,185 @@
-# FeatureLens
+# VIEW26 — FeatureLens
 
-FeatureLens is an Atlys Click-a-thon agent loop for evolving physical instrumentation and business meaning together. It implements three standalone Go agents, a versioned ClickHouse-backed Feature Context Graph, governed LLM insight synthesis, Langfuse OpenTelemetry traces, a Streamable HTTP MCP surface for LibreChat, and a lightweight React run console.
+## Track
 
-Each completed feature publishes a decision bundle with governed funnel, trend, and segment queries; KPI cards; ranked role-aware actions; and SQL-to-chart provenance. The portfolio Analytics Agent can also answer across all published features, preserve follow-up scope, generate evidence-backed charts, and expose every source query in the trace.
+**Atlys — Agents That Instrument, Analyze, and Explain**
 
-## Run locally
+## Project
+
+**FeatureLens — The Agentic Context Layer for Trustworthy Product Analytics**
+
+FeatureLens turns a feature specification and its events into safe ClickHouse instrumentation, an updated versioned business context, and evidence-backed product decisions whose schema, SQL, context version, aggregate evidence, and Langfuse trace remain inspectable.
+
+> Ship a feature once. Instrument it safely. Teach the organization what it means. Trust every answer that follows.
+
+## Team Members
+
+- Ajay Emmanuel ([@ajayep26](https://github.com/ajayep26))
+- Jozef N ([@jzf21](https://github.com/jzf21))
+- Anjitha Joys ([@anjithajoys](https://github.com/anjithajoys))
+
+## What it does
+
+FeatureLens closes the gap between a feature specification and a trustworthy product decision:
+
+1. The **Instrumentation Agent** profiles arbitrary NDJSON, proposes typed ClickHouse DDL, validates it, and stops at a human approval gate.
+2. The **Context Agent** publishes an immutable Feature Context Graph that links the verified schema to entities, events, dimensions, metrics, funnels, business questions, playbooks, guardrails, and known conflicts.
+3. The **Analytics Agent** resolves questions through that context, compiles allowlisted ClickHouse aggregate SQL, and returns decision bundles with KPI cards, funnels, trends, segments, ranked actions, and SQL-to-chart provenance.
+4. **Langfuse** records the agent handoffs, ClickHouse queries, generations, cost, model, evaluations, and Product Manager feedback.
+5. **LibreChat** can consume the same governed capabilities through seven Streamable HTTP MCP tools.
+
+The LLM never receives raw event rows, cannot select arbitrary tables, cannot change the SQL or evidence, and cannot raise confidence above the deterministic evidence ceiling. Unsupported questions fail closed without executing SQL.
+
+## Hosted Demo
+
+**[Open FeatureLens](https://clickathon-2026.view26.com)**
+
+The public deployment includes the release workflow, human schema-approval gate, decision workspace, context explorer, governed portfolio questions, dashboards, and Langfuse-enriched Trace Explorer.
+
+## Demo Video
+
+**Pending: add the final 2–3 minute Loom, YouTube, or public Google Drive URL before marking the submission ready for review.**
+
+Suggested recording path: release inbox → schema approval → context v5→v6 → surprise insight → Trace Explorer → one portfolio question.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  PM["Product Manager\nFeatureLens or LibreChat"] -->|"REST · SSE · MCP"| O["Deterministic Go orchestrator"]
+  O --> I["Instrumentation Agent"]
+  I --> G{"Human DDL gate"}
+  G -->|"approved"| CH[("ClickHouse Cloud")]
+  CH --> C["Context Agent"]
+  C --> FC[("Versioned Feature Context Graph")]
+  FC --> A["Analytics Agent"]
+  A -->|"allowlisted aggregate SQL"| CH
+  A -->|"contract + context slice + aggregates"| LLM["OpenAI-compatible LLM"]
+  I -.-> LF["Langfuse"]
+  C -.-> LF
+  A -.-> LF
+```
+
+The three agents are coordinated by a deterministic state machine with an explicit human approval gate. ClickHouse stores both the physical evidence and the durable semantic control plane: source events, versioned feature tables, context versions, normalized graph nodes and edges, schema registry records, diffs, conflicts, evaluations, and run history.
+
+The Analytics Agent is not unrestricted text-to-SQL. It resolves the feature, intent, grain, metric, dimensions, and playbook from the published context before compiling allowlisted aggregate SQL. Only the resulting contract, compact context slice, aggregate evidence, limitations, and deterministic draft may reach the LLM.
+
+Langfuse receives OpenTelemetry spans for the complete lifecycle, including instrumentation, schema execution, context evolution, queries, narrative synthesis, cost, latency, evaluations, and human feedback. LibreChat remains an optional conversational surface over the same governed MCP tools; it is not a second source of business truth.
+
+The submitted narrative configuration uses `openai/gpt-4.1-mini` through OpenRouter because the task is constrained structured synthesis over compact aggregates, where predictable latency and cost matter. A deterministic fallback keeps the system operational when generation is disabled or invalid.
+
+See the full 1–2 page explanation in **[submission/ARCHITECTURE.md](./submission/ARCHITECTURE.md)**.
+
+## How we built it
+
+- **Frontend:** React 19, TypeScript, vinext, shadcn/ui, Recharts, and Lucide.
+- **Control plane:** Go 1.25 with three standalone agent modules and deterministic orchestration.
+- **Evidence and durable state:** ClickHouse Cloud for the eight canonical Atlys tables, generated feature tables, context graph, schema registry, runs, diffs, conflicts, and evaluations.
+- **Observability:** Langfuse Cloud through OpenTelemetry, with observation-level evaluation scores and Product Manager feedback in Trace Explorer.
+- **LLM:** OpenAI-compatible structured generation using `openai/gpt-4.1-mini` through OpenRouter, with deterministic fallback.
+- **Conversational OSS surface:** LibreChat connected through seven governed Streamable HTTP MCP tools.
+- **Deployment:** Separate supervised frontend and Go services behind Caddy at the hosted demo URL.
+
+## How to run it
+
+The complete judge-facing runbook is **[RUN.md](./RUN.md)**. It covers environment variables, ClickHouse connectivity, the one-command pipeline, local UI, the sealed sixth-feature flow, standard probes, tests, LibreChat/MCP, and staging routing.
+
+After copying `.env.example` to `.env` and supplying the required ClickHouse credentials:
 
 ```bash
-cp .env.example .env
+./scripts/run-submission.sh
+```
+
+For local development:
+
+```bash
 set -a && source .env && set +a
 (cd backend && go run ./cmd/featurelens)
+npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`. If ClickHouse credentials are absent, the UI and workflow run in explicit simulation mode. Schema approval is still mandatory.
+Open `http://localhost:3000`. If ClickHouse credentials are absent, the UI and workflow use explicit simulation mode; schema approval remains mandatory.
 
-## Enable LLM insight synthesis
+## Submission evidence snapshot
 
-Set `LLM_API_KEY` and `LLM_MODEL` for any OpenAI-compatible chat endpoint. `LLM_BASE_URL` defaults to `https://api.openai.com/v1`. When either value is absent—or a generation is invalid or unavailable—the Analytics Agent preserves the deterministic governed insight and reports fallback provenance.
+| Evidence | Verified result |
+|---|---:|
+| Canonical Atlys source tables inspected | 8 |
+| Published feature releases | 6 |
+| Retained feature events | 34,982 |
+| Latest context | v6 |
+| Context graph | 147 nodes · 396 edges · 4 explicit conflicts |
+| Context-evolution evaluations | 54/54 passed |
+| Standard PM probes | 4/4 with public Langfuse traces |
+| Surprise feature | Promo / Coupon at Checkout |
+| Surprise events profiled | 5,363 across 6 event types |
+| Surprise insight | Coupon-marked cohort converts 6.44 percentage points below the null-marker baseline |
 
-The LLM never receives raw event rows. ClickHouse executes the ontology-linked SQL plan and the model receives only the analysis contract, a compact versioned context slice, aggregate evidence, limitations, and the deterministic draft. Generation spans are exported through the existing Langfuse OpenTelemetry pipeline.
+The autonomous eight-source-table report identifies the `application_started` → `document_uploaded` handoff as the largest observed baseline stage-volume loss at 86.8%. It explicitly treats this as a diagnostic signal, not a causal or cohort-conversion claim, until observation windows and identifier continuity are aligned.
 
-## Use Langfuse evaluations in Trace Explorer
+## Langfuse evaluations and Trace Explorer
 
-Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and the regional `LANGFUSE_BASE_URL` on the Go service. `LANGFUSE_TRACING_ENVIRONMENT` and `LANGFUSE_RELEASE` are recommended so production quality can be compared across deployments.
+Trace Explorer preserves the local governed execution path and enriches it server-side with Langfuse observations, automated evaluation scores, annotations, generation cost, token usage, latency, model metadata, and typed product feedback. Langfuse credentials never reach the browser.
 
-Trace Explorer keeps its local governed execution path and enriches it with Langfuse observations, automated evaluation scores, annotations, generation cost, token usage, and model metadata. The browser never receives Langfuse credentials: it reads through `GET /api/traces/{trace_id}/langfuse` and submits product feedback through `POST /api/traces/{trace_id}/feedback`. Feedback is stored as typed `user_helpful` and `issue_category` Langfuse scores on the final-answer observation.
+- `GET /api/traces/{trace_id}/langfuse` reads trace insights.
+- `POST /api/traces/{trace_id}/feedback` writes `user_helpful` and `issue_category` scores to the final-answer observation.
+- Stable `analytics.llm_synthesize` and `analytics.portfolio_conversation` observations expose governed input and output for judge evaluation.
 
-For observation-level LLM-as-a-Judge evaluation, target the stable `analytics.llm_synthesize` generation for evidence-grounding checks and `analytics.portfolio_conversation` for final-answer relevance and actionability. Their governed input and output are exported as first-class Langfuse observation I/O.
+All graded traces are listed as public share links in **[submission/evidence/traces.md](./submission/evidence/traces.md)**.
 
-## Connect LibreChat
+## LibreChat and MCP
 
-Start the Go backend on port `8080`, ensure Docker Desktop is running, then launch the local LibreChat runtime:
-
-Add `OPENROUTER_KEY` to `.local/librechat/.env` after the first start. To trace LibreChat conversations alongside the Go agents, add `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL` to the same ignored file. Then run:
+The committed [`librechat.yaml`](./librechat.yaml) and [`ops/librechat/docker-compose.override.yml`](./ops/librechat/docker-compose.override.yml) configure LibreChat as an optional Product Manager conversation surface. It receives seven governed tools from the FeatureLens Streamable HTTP MCP endpoint, including multi-feature portfolio conversation.
 
 ```bash
 ./scripts/run-librechat-local.sh
 ```
 
-Open `http://localhost:3080` and register the first local account, which LibreChat makes the administrator. The upstream LibreChat checkout and its data stay under the git-ignored `.local/librechat` directory; this repository only maintains the integration override and [`librechat.yaml`](./librechat.yaml).
+Open `http://localhost:3080` and register the first local account. The upstream LibreChat checkout and runtime data remain under the ignored `.local/librechat` directory.
 
-LibreChat receives seven governed FeatureLens tools from `http://host.docker.internal:8080/mcp`, including multi-feature portfolio conversation. The enforced FeatureLens model spec attaches those tools automatically and removes model-engineering controls from the Product Manager experience. LibreChat is the conversational surface; the Instrumentation, Context, and Analytics agents remain standalone Go services and ClickHouse remains the evidence store. In local development, **Open Power Chat** automatically opens the local LibreChat instance. Set `NEXT_PUBLIC_LIBRECHAT_URL` to override that URL for another environment.
+## Reproduce the known and unseen flows
 
-## Replay all five known features
-
-The supplied dataset is intentionally not copied into this repository. Point the sequential runner at it:
+The supplied Atlys dataset is intentionally not copied into this repository. Point the sequential runner at it:
 
 ```bash
 export ATLYS_DATASET_DIR=/path/to/click-a-thon-2026/Atlys
 ./scripts/replay-atlys-fixtures.sh
 ```
 
-The replay defaults to the retained ClickHouse feature tables and their authoritative schema versions, so it never appends browser samples to existing evidence. Set `FEATURELENS_USE_EXISTING_DATA=false` only when initially loading the fixture files into empty target tables. Each run checks the context before and after addition, event coverage, role-aware contracts, version citations, and preservation of all earlier semantics. See [`docs/CONTEXT_MODEL.md`](./docs/CONTEXT_MODEL.md) and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+For the sealed sixth feature, choose **Add another release**, upload its Markdown specification and NDJSON event file, review the generated DDL, and approve the schema. The same instrumentation → approval → context → analytics → evaluation pipeline must complete without feature-specific code or prompt changes.
 
-## Test an unseen feature
+Use **Reset baseline** to clear agent runs and versioned control-plane tables and republish context v0. Raw Atlys tables and generated feature tables are preserved, allowing an idempotent replay from the retained evidence.
 
-Choose **Unseen feature** in the release inbox and upload a Markdown specification plus an NDJSON event file. The browser preflight requires an `event` (or `event_name`) and `timestamp` on every row, then submits the package without feature-specific schema or prompt hints. The Instrumentation Agent profiles it and proposes DDL; the run pauses at the human approval gate before ClickHouse is changed.
+## Submission artifacts
 
-Use **Reset baseline** to clear agent runs and versioned control-plane tables and republish context v0. The reset requires a typed confirmation and is rejected while a run is active. Raw `atlys` tables and generated `*_events_v*` feature tables are always preserved, so the five-feature evolution can be replayed from the same evidence.
-
-After a reset, launching one of the five known releases rehydrates its complete retained event table and authoritative schema directly inside the Go service. Exact row-count and event-ID fingerprint checks make this replay read-only and idempotent; illustrative browser samples are never appended to production-backed tables.
+| Artifact | Link |
+|---|---|
+| Reproducible runbook | [RUN.md](./RUN.md) |
+| Architecture | [submission/ARCHITECTURE.md](./submission/ARCHITECTURE.md) |
+| Latest release validation | [submission/evidence/release-validation.json](./submission/evidence/release-validation.json) |
+| Eight-table autonomous report | [submission/evidence/baseline-source-report.json](./submission/evidence/baseline-source-report.json) |
+| Five known-feature DDLs | [submission/evidence/known-feature-schemas.sql](./submission/evidence/known-feature-schemas.sql) |
+| Standard PM probes | [submission/evidence/standard-probes.md](./submission/evidence/standard-probes.md) |
+| Public Langfuse trace index | [submission/evidence/traces.md](./submission/evidence/traces.md) |
+| Surprise generated DDL | [submission/surprise/generated-schema.sql](./submission/surprise/generated-schema.sql) |
+| Surprise product insight | [submission/surprise/insight.md](./submission/surprise/insight.md) |
+| Surprise release output | [submission/surprise/release-output.json](./submission/surprise/release-output.json) |
+| Context v5→v6 changelog | [submission/surprise/context-changelog.md](./submission/surprise/context-changelog.md) |
+| Pitch deck | [submission/pitch-deck.pdf](./submission/pitch-deck.pdf) |
+| Editable pitch deck | [submission/pitch-deck.pptx](./submission/pitch-deck.pptx) |
+| Readiness checklist | [submission/CHECKLIST.md](./submission/CHECKLIST.md) |
 
 ## Verify
 
 ```bash
 (cd backend && go test ./...)
 npm test
-```
-
-To validate live Ask FeatureLens answers against independently recomputed retained-table truth:
-
-```bash
 (cd backend && go run ./cmd/validate-ask)
 ```
 
-The runner checks numerical evidence, requested-dimension coverage, SQL allowlists, trace/version provenance, prose percentages, ranked-answer anchors, and fail-closed boundaries. See [`docs/ASK_GROUNDING_EVAL.md`](./docs/ASK_GROUNDING_EVAL.md) for the test matrix and release policy.
+The Ask validator independently recomputes retained-table truth and checks numerical evidence, requested dimensions, SQL allowlists, trace and version provenance, prose percentages, ranked-answer anchors, and fail-closed boundaries. See [docs/ASK_GROUNDING_EVAL.md](./docs/ASK_GROUNDING_EVAL.md) for the test matrix and release policy.
+
+## Safety and secrets
+
+No credential is committed. Copy `.env.example` to `.env`; all real environment files remain ignored. Rotate any key that has appeared in a screenshot, recording, or chat before the public submission, and update hosted secrets without committing them.
