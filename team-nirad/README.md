@@ -1,6 +1,47 @@
-<!-- SUBMISSION HEADER -->
-**Team:** Nirad · **Track:** SonyLIV · **Hosted demo:** https://watchhouse-1045532154243.asia-south1.run.app/app
-**Deck:** [pitch-deck.pdf](pitch-deck.pdf) · **Judged results:** [results/RESULTS.md](results/RESULTS.md) · **Demo video:** _link being added — uploading at submission time_
+# Team Nirad
+
+## Track
+SonyLIV
+
+## Project
+**Watchhouse** — foreground-only concurrency at streaming scale. An open app is not a viewer.
+
+## Team Members
+- Preetham (preethamresearch)
+- BhagyaChandra Rao
+
+## What it does
+Counts who is *actually watching* — `active = intent_playing AND client_alive` — instead of who merely has a session open. On the judged (unseen-day) dataset that difference is **24,087 reported vs 18,936 real at peak: a 21.4% phantom audience**. Every number is verified against an independently written oracle (149,500 of 149,500 intervals exact), served from a minute-delta serving layer, filterable by platform/country/video-type/category, and askable in chat through MCP tools that cannot invent SQL.
+
+## Hosted Demo
+**https://watchhouse-1045532154243.asia-south1.run.app/app** (Cloud Run, reading ClickHouse Cloud live)
+— concurrency curve with instant filters, query playground with the real SQL, judged results, pipeline runner.
+Companion services on the demo VM: HyperDX `http://8.231.76.83:8080` · Langfuse `http://8.231.76.83:3000` · LibreChat `http://8.231.76.83:3080`.
+**LibreChat test login for judges:** `preethamshyam123@gmail.com` / `clickhouse$Nirad26` — pick the **"Gemini · traced"** endpoint, enable the `watchhouse` MCP chip, and ask *"what was peak concurrency on ANDROID_PHONE?"* (expect 6,046).
+
+## Demo Video
+_Link being added at submission time — see PR thread._
+
+## Architecture
+Two diagrams in [the full README below](#architecture): the pipeline (Kafka → validate → dedup → ClickHouse → oracle-gated derive → delta serving → dashboards/chat) and the deployment (browser → Cloud Run → ClickHouse Cloud; one GCE VM runs ClickStack + Langfuse + LibreChat + LiteLLM + MCP from `infra/edge-compose.yml`). Tool roles, per the evidence requirements:
+- **ClickStack** — every ClickHouse query and pipeline stage is an OTel span from `scripts/otel.py` (config committed; collector writes to the all-in-one's embedded ClickHouse `otel_traces`; ingest is key-gated). Live in the demo video.
+- **LibreChat** — `infra/librechat.yaml` committed (keys via env): MCP server wiring, SSRF exemptions, LiteLLM custom endpoint. The chat flow is the brief's optional step, grounded: tools wrap the same verified queries the dashboard runs.
+- **Langfuse** — headless-bootstrapped (`infra/edge-compose.yml`); every MCP tool call and every Gemini generation (via LiteLLM, with real token usage/cost) is traced. **Judges need no login:** exports in [`results/evidence/langfuse_traces.json`](results/evidence/langfuse_traces.json).
+
+## How we built it
+ClickHouse Cloud (SharedMergeTree) as the only datastore and engine; delta-model serving tables + hourly checkpoints + incremental MVs; Redpanda/Redis streaming ingest with DLQ and idempotent sink; an independent Python oracle as the correctness gate; stdlib-only OTel and Langfuse exporters; Cloud Run + one GCE VM. Full story, including seven post-mortems of our own bugs, below.
+
+## How to run it
+```bash
+python scripts/run_sealed.py --raw <dataset.csv> --content <content.csv>   # load + verify, one command
+python scripts/dashboard.py                                               # http://localhost:877
+docker compose --env-file .env.edge -f infra/edge-compose.yml up -d       # the OSS stack (see infra/.env.edge.example)
+python scripts/sanity_cloud.py                                            # 23 linkage checks on the hosted surfaces
+```
+
+---
+
+*The full project README follows.*
 
 ---
 
