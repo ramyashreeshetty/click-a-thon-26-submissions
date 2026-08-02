@@ -1,10 +1,11 @@
-# Dynamic Duo — Automated Root-Cause Analyst (InMobi track)
+# Dynamic Duo — AdVerdict (InMobi track)
 
 > **From alert to answer in seconds — every number computed by ClickHouse, every
 > conclusion proven by a trace.**
 
 | | |
 |---|---|
+| **Project** | **AdVerdict** — the automated root-cause analyst for the ad exchange. Every diagnosis it ships is a stored, digit-verified *verdict*. |
 | **Team** | Dynamic Duo |
 | **Track** | InMobi — "From alert to answer: the automated root-cause analyst" |
 | **Members** | Nityananda Gohain ([@nityanandagohain](https://github.com/nityanandagohain)) · Srikanth Chekuri ([@srikanthccv](https://github.com/srikanthccv)) |

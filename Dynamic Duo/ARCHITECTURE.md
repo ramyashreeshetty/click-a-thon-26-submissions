@@ -1,4 +1,4 @@
-# Architecture — Automated Root-Cause Analyst (Team Dynamic Duo)
+# Architecture — AdVerdict (Team Dynamic Duo)
 
 **One line:** ClickHouse computes every number; a fixed, deterministic query sequence
 decides every drill-down; the LLM narrates and formats only; every step leaves a
